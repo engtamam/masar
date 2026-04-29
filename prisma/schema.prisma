@@ -1,0 +1,409 @@
+// Prisma Schema for Digital Incubator Platform
+// All configurable values are stored in PlatformConfig, not hardcoded
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// USER & AUTHENTICATION
+// ============================================================================
+
+enum UserRole {
+  ADMIN
+  CONSULTANT
+  ENTREPRENEUR
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         UserRole @default(ENTREPRENEUR)
+  avatarUrl    String?
+  phone        String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  consultantProfile   ConsultantProfile?
+  entrepreneurProfile EntrepreneurProfile?
+  sentMessages        ChatMessage[]     @relation("SentMessages")
+  chatRoomMembers     ChatRoomMember[]
+  uploadedFiles       UploadedFile[]    @relation("UploadedBy")
+  activityLogs        ActivityLog[]
+  loginSessions       LoginSession[]
+  notifications       Notification[]
+
+  @@map("users")
+}
+
+model LoginSession {
+  id        String   @id @default(cuid())
+  userId    String
+  userAgent String?
+  ipAddress String?
+  loginAt   DateTime @default(now())
+  logoutAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("login_sessions")
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  details   String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("activity_logs")
+}
+
+// ============================================================================
+// CONSULTANT & SPECIALTY SYSTEM (Dynamic)
+// ============================================================================
+
+model Specialty {
+  id          String  @id @default(cuid())
+  nameAr      String
+  nameEn      String
+  description String?
+  icon        String?
+  color       String?
+  sortOrder   Int     @default(0)
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  consultants       ConsultantProfile[]
+  milestoneDefaults MilestoneDefault[]
+
+  @@map("specialties")
+}
+
+model ConsultantProfile {
+  id          String  @id @default(cuid())
+  userId      String  @unique
+  specialtyId String
+  bio         String?
+  experience  String?
+  rating      Float   @default(0)
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  specialty Specialty @relation(fields: [specialtyId], references: [id])
+
+  // Relations
+  availabilities      ConsultantAvailability[]
+  milestoneApprovals  MilestoneApproval[]
+  bookings            Booking[]              @relation("ConsultantBookings")
+  assignedMilestones  MilestoneDefault[]     @relation("ConsultantMilestones")
+
+  @@map("consultant_profiles")
+}
+
+// ============================================================================
+// MILESTONE / JOURNEY SYSTEM
+// ============================================================================
+
+model MilestoneDefault {
+  id            String  @id @default(cuid())
+  titleAr       String
+  titleEn       String
+  descriptionAr String?
+  descriptionEn String?
+  icon          String?
+  sortOrder     Int
+  specialtyId   String // Which specialty can approve this milestone
+  isActive      Boolean @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  specialty    Specialty          @relation(fields: [specialtyId], references: [id])
+  consultant   ConsultantProfile? @relation("ConsultantMilestones", fields: [consultantId], references: [id])
+  consultantId String?
+
+  // Relations
+  milestoneProgress MilestoneProgress[]
+
+  @@map("milestone_defaults")
+}
+
+model MilestoneProgress {
+  id                 String          @id @default(cuid())
+  entrepreneurId     String
+  milestoneDefaultId String
+  status             MilestoneStatus @default(LOCKED)
+  startedAt          DateTime?
+  submittedAt        DateTime?
+  approvedAt         DateTime?
+  notes              String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  entrepreneur     EntrepreneurProfile @relation(fields: [entrepreneurId], references: [id], onDelete: Cascade)
+  milestoneDefault MilestoneDefault    @relation(fields: [milestoneDefaultId], references: [id])
+
+  // Relations
+  approvals MilestoneApproval[]
+  files     UploadedFile[]
+  bookings  Booking[]
+
+  @@unique([entrepreneurId, milestoneDefaultId])
+  @@map("milestone_progress")
+}
+
+enum MilestoneStatus {
+  LOCKED
+  IN_PROGRESS
+  SUBMITTED
+  APPROVED
+}
+
+model MilestoneApproval {
+  id                  String         @id @default(cuid())
+  milestoneProgressId String
+  consultantId        String
+  status              ApprovalStatus @default(PENDING)
+  comment             String?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  milestoneProgress MilestoneProgress @relation(fields: [milestoneProgressId], references: [id], onDelete: Cascade)
+  consultant        ConsultantProfile @relation(fields: [consultantId], references: [id])
+
+  @@map("milestone_approvals")
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ============================================================================
+// BOOKING / SCHEDULING SYSTEM
+// ============================================================================
+
+model ConsultantAvailability {
+  id           String  @id @default(cuid())
+  consultantId String
+  dayOfWeek    Int     // 0=Sunday, 1=Monday, ..., 6=Saturday
+  startTime    String  // HH:mm format
+  endTime      String  // HH:mm format
+  slotDuration Int     // in minutes
+  isRecurring  Boolean @default(true)
+  specificDate String? // YYYY-MM-DD for one-time slots
+  isActive     Boolean @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  consultant ConsultantProfile @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+
+  @@map("consultant_availabilities")
+}
+
+model Booking {
+  id                  String        @id @default(cuid())
+  consultantId        String
+  entrepreneurId      String
+  milestoneProgressId String?
+  date                String        // YYYY-MM-DD
+  startTime           String        // HH:mm
+  endTime             String        // HH:mm
+  status              BookingStatus @default(CONFIRMED)
+  meetingLink         String?       // Jitsi Meet link
+  notes               String?
+  cancellationReason  String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  consultant        ConsultantProfile   @relation("ConsultantBookings", fields: [consultantId], references: [id])
+  entrepreneur      EntrepreneurProfile @relation("EntrepreneurBookings", fields: [entrepreneurId], references: [id], onDelete: Cascade)
+  milestoneProgress MilestoneProgress?  @relation(fields: [milestoneProgressId], references: [id])
+
+  @@map("bookings")
+}
+
+enum BookingStatus {
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+// ============================================================================
+// QUOTA SYSTEM
+// ============================================================================
+
+model Quota {
+  id                    String  @id @default(cuid())
+  entrepreneurId        String  @unique
+  monthlyBookingLimit   Int     @default(4)
+  bookingsUsedThisMonth Int     @default(0)
+  currentMonth          String  // YYYY-MM format
+  isExempted            Boolean @default(false)
+  customLimit           Int?    // Override limit for exempted users
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  entrepreneur EntrepreneurProfile @relation(fields: [entrepreneurId], references: [id], onDelete: Cascade)
+
+  @@map("quotas")
+}
+
+// ============================================================================
+// ENTREPRENEUR PROFILE
+// ============================================================================
+
+model EntrepreneurProfile {
+  id          String  @id @default(cuid())
+  userId      String  @unique
+  projectName String?
+  projectDesc String?
+  industry    String?
+  stage       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Relations
+  milestoneProgress MilestoneProgress[]
+  bookings          Booking[]           @relation("EntrepreneurBookings")
+  quota             Quota?
+  uploadedFiles     UploadedFile[]      @relation("EntrepreneurFiles")
+
+  @@map("entrepreneur_profiles")
+}
+
+// ============================================================================
+// COMMUNICATION: CHAT SYSTEM
+// ============================================================================
+
+model ChatRoom {
+  id       String       @id @default(cuid())
+  name     String?
+  type     ChatRoomType @default(DIRECT)
+  isActive Boolean      @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  // Relations
+  members  ChatRoomMember[]
+  messages ChatMessage[]
+
+  @@map("chat_rooms")
+}
+
+enum ChatRoomType {
+  DIRECT
+  MILESTONE_GROUP
+}
+
+model ChatRoomMember {
+  id        String   @id @default(cuid())
+  chatRoomId String
+  userId    String
+  role      String   @default("member") // "member" or "admin"
+  joinedAt  DateTime @default(now())
+
+  chatRoom ChatRoom @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([chatRoomId, userId])
+  @@map("chat_room_members")
+}
+
+model ChatMessage {
+  id         String   @id @default(cuid())
+  chatRoomId String
+  senderId   String
+  content    String
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  chatRoom ChatRoom @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+  sender   User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@map("chat_messages")
+}
+
+// ============================================================================
+// FILE MANAGEMENT (with encryption support)
+// ============================================================================
+
+model UploadedFile {
+  id                  String  @id @default(cuid())
+  milestoneProgressId String?
+  entrepreneurId      String?
+  uploadedBy          String
+  fileName            String
+  originalName        String
+  filePath            String
+  fileSize            Int
+  mimeType            String
+  isEncrypted         Boolean @default(false)
+  encryptionKeyRef    String? // Reference to encryption key (never store key itself)
+  createdAt           DateTime @default(now())
+
+  milestoneProgress MilestoneProgress?   @relation(fields: [milestoneProgressId], references: [id], onDelete: Cascade)
+  entrepreneur      EntrepreneurProfile? @relation("EntrepreneurFiles", fields: [entrepreneurId], references: [id], onDelete: Cascade)
+  uploader          User                 @relation("UploadedBy", fields: [uploadedBy], references: [id], onDelete: Cascade)
+
+  @@map("uploaded_files")
+}
+
+// ============================================================================
+// PLATFORM CONFIGURATION (No hardcoded values)
+// ============================================================================
+
+model PlatformConfig {
+  id          String     @id @default(cuid())
+  key         String     @unique
+  value       String
+  type        ConfigType @default(STRING)
+  description String?
+
+  @@map("platform_configs")
+}
+
+enum ConfigType {
+  STRING
+  NUMBER
+  BOOLEAN
+  JSON
+}
+
+// ============================================================================
+// NOTIFICATION SYSTEM
+// ============================================================================
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      String   @default("info")
+  isRead    Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}

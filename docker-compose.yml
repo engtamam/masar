@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=file:/app/db/production.db
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      - NODE_ENV=production
+    volumes:
+      - db-data:/app/db
+      - upload-data:/app/upload
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  chat:
+    build:
+      context: ./mini-services/chat-service
+      dockerfile: Dockerfile
+    ports:
+      - "3003:3003"
+    environment:
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      - API_BASE=http://web:3000
+    depends_on:
+      web:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  db-data:
+  upload-data:
