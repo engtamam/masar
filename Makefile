@@ -29,7 +29,25 @@ help: ## Show this help message
 # QUICK START
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-setup: ## First-time setup: install bun + deps + push schema + seed data
+setup: ## First-time dev setup: install bun + deps + push schema + seed data
+
+prod-setup: ## First-time production setup (direct, no Docker): install bun + deps + build + push schema + seed
+	@echo "🚀 Setting up Masar Platform for production..."
+	@which bun > /dev/null 2>&1 || { echo "📦 Installing Bun..."; curl -fsSL https://bun.sh/install | bash; . ~/.bashrc; }
+	@mkdir -p db upload/templates
+	bun install
+	bun run db:generate
+	bun run db:push
+	bun run src/lib/seed.ts
+	bun run build
+	@echo ""
+	@echo "✅ Production setup complete! Run 'make start' to start the server."
+	@echo ""
+	@echo "📋 Admin Account (only account seeded):"
+	@echo "   Email:    admin@masar.sa"
+	@echo "   Password: admin123"
+
+setup: ## First-time dev setup: install bun + deps + push schema + seed data
 	@echo "🚀 Setting up Masar Platform..."
 	@which bun > /dev/null 2>&1 || { echo "📦 Installing Bun..."; curl -fsSL https://bun.sh/install | bash; . ~/.bashrc; }
 	bun install
