@@ -778,3 +778,20 @@ Stage Summary:
 - Registration requires explicit checkbox acceptance of terms + privacy policy
 - Legal disclaimer notice on registration page
 - Build passes successfully, both pages render correctly
+---
+Task ID: 1
+Agent: Main
+Task: Clean .env.example (remove Arabic) + Create gen-keys script + Add make gen-keys command
+
+Work Log:
+- Removed all Arabic comments from .env.example, kept English only
+- Created scripts/gen-keys.sh that generates secure random keys using openssl rand -hex 32
+- Script auto-updates .env file (adds or replaces JWT_SECRET and ENCRYPTION_KEY)
+- Added gen-keys target to Makefile
+- Tested successfully - both keys generated and .env updated
+
+Stage Summary:
+- .env.example now English-only with clear comments referencing make gen-keys
+- make gen-keys generates and injects secure random keys into .env
+- Script handles: no .env file (creates from .env.example), missing keys (adds them), existing keys (replaces them)
+
