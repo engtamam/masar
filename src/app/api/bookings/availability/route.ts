@@ -14,10 +14,21 @@ export async function GET(request: NextRequest) {
     }
 
     const url = new URL(request.url)
-    const consultantId = url.searchParams.get('consultantId')
+    let consultantId = url.searchParams.get('consultantId')
 
     if (!consultantId) {
       return createErrorResponse('INVALID_INPUT')
+    }
+
+    // If consultantId=me, resolve to the consultant's profile ID
+    if (consultantId === 'me') {
+      const profile = await db.consultantProfile.findUnique({
+        where: { userId: user.userId },
+      })
+      if (!profile) {
+        return createErrorResponse('NOT_FOUND')
+      }
+      consultantId = profile.id
     }
 
     const availabilities = await db.consultantAvailability.findMany({
@@ -59,6 +70,36 @@ export async function POST(request: NextRequest) {
 
     if (!slots || !Array.isArray(slots) || slots.length === 0) {
       return createErrorResponse('INVALID_INPUT')
+    }
+
+    // Validate each slot
+    const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/
+    for (let i = 0; i < slots.length; i++) {
+      const slot = slots[i]
+      if (slot.dayOfWeek < 0 || slot.dayOfWeek > 6 || !Number.isInteger(slot.dayOfWeek)) {
+        return Response.json(
+          { success: false, error: `Invalid dayOfWeek for slot ${i + 1}: must be 0-6` },
+          { status: 400 }
+        )
+      }
+      if (!timeRegex.test(slot.startTime) || !timeRegex.test(slot.endTime)) {
+        return Response.json(
+          { success: false, error: `Invalid time format for slot ${i + 1}: use HH:mm` },
+          { status: 400 }
+        )
+      }
+      if (slot.startTime >= slot.endTime) {
+        return Response.json(
+          { success: false, error: `Invalid time range for slot ${i + 1}: startTime must be before endTime` },
+          { status: 400 }
+        )
+      }
+      if (slot.slotDuration !== undefined && (slot.slotDuration < 15 || slot.slotDuration > 120)) {
+        return Response.json(
+          { success: false, error: `Invalid slotDuration for slot ${i + 1}: must be 15-120 minutes` },
+          { status: 400 }
+        )
+      }
     }
 
     // Get consultant profile

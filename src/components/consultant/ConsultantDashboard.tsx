@@ -212,6 +212,9 @@ interface AvailabilitySlot {
   endTime: string;
   slotDuration: number;
   consultantId: string;
+  isRecurring: boolean;
+  specificDate: string | null;
+  isActive: boolean;
 }
 
 interface ChatRoomMember {
@@ -746,8 +749,9 @@ export function ConsultantSchedule() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
+      // Use the profile-aware endpoint (consultantId=me resolves on server)
       const [availRes, bookRes] = await Promise.all([
-        user?.id ? bookingsApi.getAvailability(user.id) : Promise.resolve({ success: false }),
+        user?.id ? bookingsApi.getMyAvailability() : Promise.resolve({ success: false }),
         bookingsApi.getBookings(),
       ]);
 
@@ -805,19 +809,7 @@ export function ConsultantSchedule() {
   const handleDeleteSlot = async (slotId: string) => {
     setActionLoading(slotId);
     try {
-      // Delete by sending remaining slots (excluding the deleted one)
-      const remainingSlots = availability
-        .filter((s) => s.id !== slotId)
-        .map((s) => ({
-          dayOfWeek: s.dayOfWeek,
-          startTime: s.startTime,
-          endTime: s.endTime,
-          slotDuration: s.slotDuration,
-        }));
-
-      // We need to re-set availability without this slot
-      // Using setAvailability to overwrite
-      const res = await bookingsApi.setAvailability(remainingSlots);
+      const res = await bookingsApi.deleteAvailabilitySlot(slotId);
       if (res.success) {
         toast.success('تم حذف الفترة');
         await loadData();

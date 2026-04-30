@@ -105,6 +105,24 @@ export async function POST(request: NextRequest) {
       return createErrorResponse('INVALID_INPUT')
     }
 
+    // Validate date format and not in the past
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/
+    if (!dateRegex.test(date)) {
+      return Response.json(
+        { success: false, error: 'Invalid date format, use YYYY-MM-DD' },
+        { status: 400 }
+      )
+    }
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const bookingDate = new Date(date + 'T00:00:00')
+    if (bookingDate < today) {
+      return Response.json(
+        { success: false, error: 'Cannot book a date in the past' },
+        { status: 400 }
+      )
+    }
+
     // Get entrepreneur profile
     const profile = await db.entrepreneurProfile.findUnique({
       where: { userId: user.userId },

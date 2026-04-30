@@ -6,6 +6,7 @@ import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser, requireRole, createSuccessResponse, createErrorResponse } from '@/lib/middleware'
 import { hashPassword } from '@/lib/auth'
+import { getConfigNumber } from '@/lib/config'
 
 export async function GET(request: NextRequest) {
   try {
@@ -118,6 +119,23 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Validate password length
+    if (password.length < 6) {
+      return Response.json(
+        { success: false, error: 'Password must be at least 6 characters' },
+        { status: 400 }
+      )
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      return Response.json(
+        { success: false, error: 'Invalid email format' },
+        { status: 400 }
+      )
+    }
+
     // Check for duplicate email
     const existingUser = await db.user.findUnique({ where: { email } })
     if (existingUser) {
@@ -156,17 +174,18 @@ export async function POST(request: NextRequest) {
         })
       } else if (role === 'ENTREPRENEUR') {
         const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
+        const monthlyQuota = await getConfigNumber('DEFAULT_MONTHLY_QUOTA')
         const profile = await tx.entrepreneurProfile.create({
           data: {
             userId: newUser.id,
           },
         })
 
-        // Create quota
+        // Create quota — use platform config instead of hardcoded value
         await tx.quota.create({
           data: {
             entrepreneurId: profile.id,
-            monthlyBookingLimit: 4,
+            monthlyBookingLimit: monthlyQuota || 4,
             bookingsUsedThisMonth: 0,
             currentMonth,
             isExempted: false,

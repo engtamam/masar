@@ -329,10 +329,24 @@ export const bookingsApi = {
     }),
 
   /**
-   * Get consultant availability slots
+   * Get consultant availability slots by consultant profile ID
    */
   getAvailability: (consultantId: string) =>
     request<unknown[]>(`/bookings/availability${buildQuery({ consultantId })}`),
+
+  /**
+   * Get my availability (consultant only — server resolves profile automatically)
+   */
+  getMyAvailability: () =>
+    request<unknown[]>('/bookings/availability?consultantId=me'),
+
+  /**
+   * Delete a single availability slot (soft delete)
+   */
+  deleteAvailabilitySlot: (slotId: string) =>
+    request<{ message: string }>(`/bookings/availability/${slotId}`, {
+      method: 'DELETE',
+    }),
 
   /**
    * Set availability slots (consultant only)

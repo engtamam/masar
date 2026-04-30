@@ -705,6 +705,14 @@ export function AdminUsers() {
       toast.error('يرجى ملء جميع الحقول المطلوبة');
       return;
     }
+    if (formRole === 'CONSULTANT' && !formSpecialtyId) {
+      toast.error('يرجى اختيار التخصص للمستشار');
+      return;
+    }
+    if (formPassword.length < 6) {
+      toast.error('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
+      return;
+    }
     setSaving(true);
     try {
       const res = await adminApi.createUser({
@@ -780,7 +788,7 @@ export function AdminUsers() {
   const openEditDialog = (userItem: UserItem) => {
     setSelectedUser(userItem);
     setEditName(userItem.name);
-    setEditBio(userItem.consultantProfile?.specialty ? '' : '');
+    setEditBio(userItem.consultantProfile?.bio || '');
     setEditSpecialtyId(userItem.consultantProfile?.specialty?.id || '');
     setEditDialogOpen(true);
   };
