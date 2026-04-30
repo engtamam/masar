@@ -20,6 +20,9 @@
 
 set -euo pipefail
 
+# Ensure bun is in PATH (if installed but not loaded)
+export PATH="$HOME/.bun/bin:$PATH"
+
 # ─── Configuration (edit these) ────────────────────────────
 PROJECT_NAME="masar"
 DEPLOY_USER="ubuntu"                           # EC2 user (ubuntu for AWS AMIs)
@@ -75,6 +78,13 @@ check_prerequisites() {
     # Check Docker Compose
     if ! docker compose version &> /dev/null; then
         err "Docker Compose V2 is required. Please install it: https://docs.docker.com/compose/install/"
+    fi
+
+    # Check Bun (needed to update lockfiles before build)
+    if ! command -v bun &> /dev/null; then
+        log "Installing Bun..."
+        curl -fsSL https://bun.sh/install | bash
+        export PATH="$HOME/.bun/bin:$PATH"
     fi
 
     log "All prerequisites met!"
