@@ -7,6 +7,7 @@ import { create } from 'zustand';
 // ========== View Types ==========
 
 export type AppView =
+  | 'landing'
   | 'login'
   | 'register'
   | 'entrepreneur-dashboard'
@@ -114,7 +115,7 @@ export function getDefaultView(role: string): AppView {
     case 'ENTREPRENEUR':
       return 'entrepreneur-dashboard';
     default:
-      return 'login';
+      return 'landing';
   }
 }
 
@@ -152,7 +153,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   logout: () => {
-    set({ user: null, token: null, currentView: 'login', activeChatRoomId: null });
+    set({ user: null, token: null, currentView: 'landing', activeChatRoomId: null });
     if (typeof window !== 'undefined') {
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(USER_KEY);
@@ -170,9 +171,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     const storedView = getStoredView();
 
     // Determine view: if user is stored and view is valid, use it; otherwise derive default
-    let currentView: AppView = 'login';
+    let currentView: AppView = 'landing';
     if (user && token) {
-      if (storedView && storedView !== 'login' && storedView !== 'register') {
+      if (storedView && storedView !== 'landing' && storedView !== 'login' && storedView !== 'register') {
         currentView = storedView;
       } else {
         currentView = getDefaultView(user.role);
@@ -183,7 +184,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   // Navigation state
-  currentView: 'login',
+  currentView: 'landing',
 
   setCurrentView: (currentView) => {
     set({ currentView });

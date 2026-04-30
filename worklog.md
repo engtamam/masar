@@ -577,3 +577,71 @@ Confirmed `output: "standalone"` already present — required for Docker standal
 - Lint passes with no new errors (only pre-existing font warning in layout.tsx)
 - `next.config.ts` already contains `output: "standalone"` — no update needed
 - Makefile `help` target format verified
+
+---
+
+## Task 1 - Nibras Landing Page (Agent: landing-ui)
+
+### Completed: 2025-04-29
+
+### Summary
+Created a stunning, professional Arabic RTL landing page for the "نِبْراس" (Nibras) initiative at `src/components/landing/NibrasLanding.tsx`, and integrated it into `src/app/page.tsx` as the default view for unauthenticated users. The page features 10 sections with framer-motion scroll animations, emerald/teal gradient theme, animated hero with floating orbs, counter animations, an alternating timeline for the 8 milestones, and fully responsive mobile-first design.
+
+### Changes Made
+
+#### 1. NibrasLanding.tsx (`src/components/landing/NibrasLanding.tsx`)
+
+**Exports:**
+- `NibrasLanding` — Single comprehensive landing page component
+
+**Props:**
+- `onSignUp: () => void` — Callback when user clicks sign-up CTA
+- `onLogin: () => void` — Callback when user clicks login link
+
+**10 Sections Implemented:**
+
+| # | Section | Description |
+|---|---------|-------------|
+| 1 | Hero (البطل) | Animated gradient background (emerald/teal), "نِبْراس" in large typography, tagline, subtitle, two CTA buttons, floating decorative orbs, stats bar with counter animation (+500, 8, 100%) |
+| 2 | المشكلة (Problem) | Empathetic problem statement with 4 cards showing the gap between ideas and incubator acceptance |
+| 3 | الحل (Solution) | 3 statement cards explaining how Nibras bridges the gap — not an incubator, but prepares you for one |
+| 4 | رحلتك مع نِبْراس (8-Step Journey) | Alternating timeline with 8 milestone cards (Business Model → MVP → Data Room → Roadmap → Financials → Pitch Deck → Exit Strategy → The Ask) |
+| 5 | كيف نعمل معك (How It Works) | 3-step process cards with gradient headers: Register → Work with Consultant → Be Incubator-Ready |
+| 6 | ما يميّزنا (What Makes Us Different) | 4 feature cards: Free, Expert Consultants, Gated Journey, Idea-to-Acceptance |
+| 7 | لمن هذه المبادرة؟ (Who Is This For) | Dark emerald section with 4 glassmorphic cards targeting specific personas |
+| 8 | رؤيتنا ورسالتنا (Vision & Mission) | Two side-by-side cards with Mission and Vision statements |
+| 9 | جاهز تبدأ؟ (CTA) | Final call-to-action with gradient card, sign-up button, and login link |
+| 10 | Footer | Logo, tagline, initiative description, navigation links, copyright |
+
+**Animation & Design Features:**
+- `framer-motion` scroll-triggered animations (fadeUp, scaleUp, slideFromRight)
+- `AnimatedSection` wrapper using `useInView` for scroll-based reveal
+- Counter animation hook (`useCounter`) for hero stats
+- Floating orbs with continuous motion in hero section
+- Animated CSS gradient on hero background (`heroGradient` keyframe)
+- Scroll-to-top button with fade animation
+- Alternating timeline layout (desktop: left/right cards, mobile: vertical)
+- Hover effects on all interactive cards
+- Gradient header bars on "How It Works" cards
+
+**Technical Details:**
+- `'use client'` directive
+- Individual shadcn/ui imports: `Button`, `Card`, `CardContent`, `Badge`
+- `lucide-react` icons: Lamp, Rocket, Users, CheckCircle2, ArrowLeft, Star, Target, Lightbulb, ShieldCheck, FileText, Wrench, FolderOpen, Map, DollarSign, BarChart3, DoorOpen, Gem, ChevronDown, Heart, Sparkles, Compass, Handshake, Trophy, ArrowUp
+- RTL layout with `dir="rtl"` on root container
+- Responsive design with mobile-first approach (flex-col → sm:flex-row)
+- All UI text in Arabic, code/comments in English
+- Empathetic, diplomatic tone throughout — framing problems as system gaps not personal failures
+
+#### 2. page.tsx Update (`src/app/page.tsx`)
+
+- Added `NibrasLanding` import
+- Added `setCurrentView` to destructured store values
+- When user is not authenticated (no matching role), renders `<NibrasLanding onSignUp={() => setCurrentView('register')} onLogin={() => setCurrentView('login')} />`
+- Previously fell back to `<LoginPage />` — now shows landing page first
+
+#### 3. Verification
+- Lint passes with no new errors (only pre-existing font warning in layout.tsx)
+- Dev server compiles successfully: `GET / 200 in 210ms`
+- All imports resolved correctly (individual component paths instead of barrel export)
+- Removed unused `fadeIn` variant

@@ -322,7 +322,7 @@ export function EntrepreneurSidebar() {
           <Rocket className="w-5 h-5 text-emerald-200" />
         </div>
         <div>
-          <h1 className="font-bold text-lg leading-tight">الحاضنة الرقمية</h1>
+          <h1 className="font-bold text-lg leading-tight">نِبْراس</h1>
           <p className="text-emerald-300 text-xs">منصة رواد الأعمال</p>
         </div>
       </div>
@@ -470,7 +470,7 @@ export function EntrepreneurOverview() {
         <h2 className="text-2xl font-bold text-gray-900">
           مرحباً، {user?.name || 'رائد الأعمال'} 👋
         </h2>
-        <p className="text-muted-foreground mt-1">إليك نظرة عامة على تقدمك في الحاضنة</p>
+        <p className="text-muted-foreground mt-1">إليك نظرة عامة على تقدمك في مبادرة نِبْراس</p>
       </div>
 
       {/* Stat cards */}
@@ -738,7 +738,7 @@ export function JourneyView() {
       <div className="mb-8">
         <h2 className="text-2xl font-bold text-gray-900">رحلتي</h2>
         <p className="text-muted-foreground mt-1">
-          تابع تقدمك عبر المراحل الثمانية نحو جاهزية الاستثمار
+          تابع تقدمك عبر المراحل الثمانية نحو القبول في الحاضنات والمسرّعات
         </p>
       </div>
 

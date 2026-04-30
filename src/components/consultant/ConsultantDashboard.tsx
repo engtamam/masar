@@ -359,8 +359,8 @@ export function ConsultantSidebar() {
           <Rocket className="w-5 h-5 text-emerald-200" />
         </div>
         <div>
-          <h1 className="font-bold text-lg leading-tight">الحاضنة الرقمية</h1>
-          <p className="text-emerald-300 text-xs">منصة المستشارين</p>
+          <h1 className="font-bold text-lg leading-tight">نِبْراس</h1>
+          <p className="text-emerald-300 text-xs">لوحة المستشار</p>
         </div>
       </div>
 
@@ -574,7 +574,7 @@ export function ConsultantOverview() {
         <h2 className="text-2xl font-bold text-gray-900">
           مرحباً، {user?.name || 'المستشار'} 👋
         </h2>
-        <p className="text-muted-foreground mt-1">إليك نظرة عامة على عملك في الحاضنة</p>
+        <p className="text-muted-foreground mt-1">إليك نظرة عامة على عملك في مبادرة نِبْراس</p>
       </div>
 
       {/* Stat cards */}

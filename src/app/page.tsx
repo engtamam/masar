@@ -1,12 +1,13 @@
 'use client';
 
 // Main Application Entry Point
-// Routes between auth pages and role-based dashboards
+// Routes between landing page, auth pages, and role-based dashboards
 // Arabic RTL interface with English codebase
 
-import { useEffect, useSyncExternalStore } from 'react';
+import { useEffect } from 'react';
 import { useAppStore } from '@/lib/store';
 import { LoginPage, RegisterPage } from '@/components/auth/AuthPages';
+import { NibrasLanding } from '@/components/landing/NibrasLanding';
 import {
   EntrepreneurSidebar,
   EntrepreneurMainView,
@@ -20,7 +21,6 @@ import {
   AdminMainView,
 } from '@/components/admin/AdminDashboard';
 import { authApi } from '@/lib/api';
-import { Loader2 } from 'lucide-react';
 
 // Track hydration state outside of React render cycle
 let _hydrated = false;
@@ -32,7 +32,8 @@ function hydrateOnce() {
 }
 
 export default function Home() {
-  const { user, token, currentView, setUser, logout } = useAppStore();
+  const { user, token, currentView, setUser, setCurrentView, logout } =
+    useAppStore();
 
   // Hydrate store from localStorage on first render
   hydrateOnce();
@@ -60,7 +61,7 @@ export default function Home() {
     }
   }, [token, user, setUser, logout]);
 
-  // Auth pages (no sidebar)
+  // Auth pages (standalone, no sidebar)
   if (currentView === 'login') {
     return <LoginPage />;
   }
@@ -69,7 +70,7 @@ export default function Home() {
     return <RegisterPage />;
   }
 
-  // Role-based dashboards
+  // Authenticated dashboards
   if (user?.role === 'ENTREPRENEUR') {
     return (
       <div className="min-h-screen flex bg-gray-50" dir="rtl">
@@ -103,6 +104,11 @@ export default function Home() {
     );
   }
 
-  // Fallback to login
-  return <LoginPage />;
+  // Default: Landing page for unauthenticated visitors
+  return (
+    <NibrasLanding
+      onSignUp={() => setCurrentView('register')}
+      onLogin={() => setCurrentView('login')}
+    />
+  );
 }

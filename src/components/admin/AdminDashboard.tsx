@@ -349,7 +349,7 @@ export function AdminSidebar() {
           <Rocket className="w-5 h-5 text-emerald-200" />
         </div>
         <div>
-          <h1 className="font-bold text-lg leading-tight">الحاضنة الرقمية</h1>
+          <h1 className="font-bold text-lg leading-tight">نِبْراس</h1>
           <p className="text-emerald-300 text-xs">لوحة الإدارة</p>
         </div>
       </div>
@@ -551,7 +551,7 @@ export function AdminOverview() {
         <h2 className="text-2xl font-bold text-gray-900">
           مرحباً، {user?.name || 'المدير'} 👋
         </h2>
-        <p className="text-muted-foreground mt-1">إليك نظرة عامة على منصة الحاضنة الرقمية</p>
+        <p className="text-muted-foreground mt-1">إليك نظرة عامة على مبادرة نِبْراس</p>
       </div>
 
       {/* Stat cards */}

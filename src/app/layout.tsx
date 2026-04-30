@@ -3,8 +3,8 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 
 export const metadata: Metadata = {
-  title: "الحاضنة الرقمية - منصة رواد الأعمال",
-  description: "منصة حاضنة رقمية تساعد رواد الأعمال على تحويل أفكارهم إلى مشاريع جاهزة للاستثمار عبر نظام الرحلة المشروطة",
+  title: "نِبْراس - مبادرة لدعم رواد الأعمال الناشئين",
+  description: "مبادرة مجانية تُجهّز رواد الأعمال الناشئين للقبول في الحاضنات والمسرّعات عبر رحلة إرشادية مُهيكلة",
   icons: {
     icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
   },

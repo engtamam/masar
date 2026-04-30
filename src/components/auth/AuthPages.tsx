@@ -23,8 +23,8 @@ import {
 
 // ========== Shared Constants ==========
 
-const PLATFORM_NAME = 'الحاضنة الرقمية';
-const TAGLINE = 'من رحلة الفكرة إلى جاهزية الاستثمار';
+const PLATFORM_NAME = 'نِبْراس';
+const TAGLINE = 'ضوءُك في بداية الطريق';
 
 // ========== Shared Styles ==========
 
