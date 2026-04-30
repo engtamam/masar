@@ -675,3 +675,26 @@ Stage Summary:
 - Logo icon changed from Lamp (مصباح) to Compass (بوصلة) for better brand alignment
 - File renamed: NibrasLanding.tsx → MasarLanding.tsx
 - Production build compiles successfully
+
+---
+Task ID: deploy-infra-and-fixes
+Agent: main
+Task: Add deployment infrastructure, fix UI issues, clarify auth flow
+
+Work Log:
+- Fixed "تعرّف علينا" button visibility on landing page (changed from white outline to emerald semi-transparent bg + emerald border)
+- Created Caddyfile with HTTPS auto-provisioning, security headers, WebSocket support
+- Created docker-compose.prod.yml with Caddy + Web + Chat services + named volumes + bridge network
+- Created deploy.sh with full deployment script (deploy, update, reset, logs, status, backup, seed)
+- Created .env.production template with all required production variables
+- Enhanced Makefile with: setup, fresh, nuke, prod-up/down/logs/status/reset/update/backup/seed, db-reset-fresh
+- Updated AuthPages.tsx: Changed icon to Compass, added RoleInfoBox explaining how each role logs in, added note about consultant accounts being admin-created, clarified register is for entrepreneurs
+- Updated all 3 dashboard sidebars: Rocket → Compass icon for brand consistency
+- Build verified successfully
+
+Stage Summary:
+- Complete deployment infrastructure ready for AWS
+- Caddy provides automatic HTTPS with Let's Encrypt
+- deploy.sh handles full lifecycle: deploy, update, reset, backup
+- Auth flow clarified: entrepreneurs register, consultants/admins created by admin
+- All icon branding consistent (Compass across all pages)

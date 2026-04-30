@@ -1,0 +1,83 @@
+# Masar Platform - Production Docker Compose
+# Usage: docker compose -f docker-compose.prod.yml up -d
+# Requires: .env file with production values
+
+version: '3.8'
+
+services:
+  # ─── Caddy Reverse Proxy ─────────────────────────────────
+  caddy:
+    image: caddy:2-alpine
+    container_name: masar-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+      - upload-data:/app/upload:ro
+    environment:
+      - DOMAIN=${DOMAIN:-localhost}
+    depends_on:
+      web:
+        condition: service_healthy
+    networks:
+      - masar-network
+
+  # ─── Next.js Web Application ─────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: masar-web
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=file:/app/db/production.db
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
+      - NODE_ENV=production
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-https://${DOMAIN:-localhost}}
+      - PLATFORM_NAME=${PLATFORM_NAME:-مَسَار}
+    volumes:
+      - db-data:/app/db
+      - upload-data:/app/upload
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - masar-network
+
+  # ─── Chat WebSocket Service ──────────────────────────────
+  chat:
+    build:
+      context: ./mini-services/chat-service
+      dockerfile: Dockerfile
+    container_name: masar-chat
+    restart: unless-stopped
+    environment:
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
+      - API_BASE=http://web:3000
+      - PORT=3003
+    depends_on:
+      web:
+        condition: service_healthy
+    networks:
+      - masar-network
+
+volumes:
+  db-data:
+    driver: local
+  upload-data:
+    driver: local
+  caddy-data:
+    driver: local
+  caddy-config:
+    driver: local
+
+networks:
+  masar-network:
+    driver: bridge

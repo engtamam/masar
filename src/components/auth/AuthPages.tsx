@@ -1,10 +1,12 @@
 'use client';
 
-// Authentication pages for the Digital Incubator Platform
+// Authentication pages for the Masar Platform
 // LoginPage and RegisterPage with Arabic RTL layout, emerald/teal theme
+// All roles (Entrepreneur, Consultant, Admin) use the same login page
+// The system automatically routes each role to their dedicated dashboard
 
 import { useState, type FormEvent } from 'react';
-import { Rocket, Mail, Lock, User, Briefcase, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Compass, Mail, Lock, User, Briefcase, Eye, EyeOff, Loader2, Shield, Users } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useAppStore, getDefaultView } from '@/lib/store';
@@ -68,7 +70,7 @@ function AuthLogo() {
     <div className="text-center mb-8">
       {/* Icon badge */}
       <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/15 backdrop-blur-sm mb-4 shadow-lg">
-        <Rocket className="w-8 h-8 text-white" />
+        <Compass className="w-8 h-8 text-white" />
       </div>
       {/* Platform name */}
       <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2 tracking-tight">
@@ -78,6 +80,31 @@ function AuthLogo() {
       <p className="text-emerald-100 text-sm sm:text-base font-light">
         {TAGLINE}
       </p>
+    </div>
+  );
+}
+
+// ========== Role Info Box ==========
+// Shows how each role accesses the platform
+
+function RoleInfoBox() {
+  return (
+    <div className="mt-4 p-3 bg-emerald-50/80 rounded-lg border border-emerald-100">
+      <p className="text-xs font-semibold text-emerald-800 mb-2">كيف تدخل المنصة؟</p>
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-2 text-xs text-gray-600">
+          <User className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+          <span><strong>رائد الأعمال:</strong> سجّل حسابك مباشرة من هنا</span>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-gray-600">
+          <Users className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+          <span><strong>المستشار:</strong> يتم إنشاء حسابك من قبل الإدارة</span>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-gray-600">
+          <Shield className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+          <span><strong>الإدارة:</strong> يتم إنشاء حسابك أثناء التثبيت</span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -141,7 +168,7 @@ export function LoginPage() {
         <CardHeader className="text-center pb-0">
           <h2 className="text-xl font-bold text-gray-900">تسجيل الدخول</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            أدخل بياناتك للوصول إلى حسابك
+            جميع المستخدمين يدخلون من هنا — النظام يوجّهك تلقائياً
           </p>
         </CardHeader>
 
@@ -219,11 +246,14 @@ export function LoginPage() {
               )}
             </Button>
           </form>
+
+          {/* Role info box */}
+          <RoleInfoBox />
         </CardContent>
 
         <CardFooter className="justify-center pb-6">
           <p className="text-sm text-muted-foreground">
-            ليس لديك حساب؟{' '}
+            رائد أعمال وليس لديك حساب؟{' '}
             <button
               type="button"
               onClick={() => setCurrentView('register')}
@@ -312,9 +342,9 @@ export function RegisterPage() {
 
       <Card className="border-0 shadow-2xl bg-white/95 backdrop-blur-md">
         <CardHeader className="text-center pb-0">
-          <h2 className="text-xl font-bold text-gray-900">إنشاء حساب جديد</h2>
+          <h2 className="text-xl font-bold text-gray-900">إنشاء حساب رائد أعمال</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            ابدأ رحلتك الريادية معنا
+            سجّل كرائد أعمال وابدأ رحلتك المجانية
           </p>
         </CardHeader>
 
@@ -466,6 +496,13 @@ export function RegisterPage() {
               )}
             </Button>
           </form>
+
+          {/* Info about consultant/admin accounts */}
+          <div className="mt-4 p-3 bg-blue-50/80 rounded-lg border border-blue-100">
+            <p className="text-xs text-blue-800">
+              💡 <strong>ملاحظة:</strong> حسابات المستشارين والإدارة يتم إنشاؤها من قبل مدير النظام. إذا كنت مستشاراً، تواصل مع الإدارة للحصول على بيانات الدخول.
+            </p>
+          </div>
         </CardContent>
 
         <CardFooter className="justify-center pb-6">

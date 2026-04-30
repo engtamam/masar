@@ -1,23 +1,54 @@
-:81 {
-	@transform_port_query {
-		query XTransformPort=*
-	}
+# Masar Platform - Caddy Reverse Proxy Configuration
+# Replace YOUR_DOMAIN with your actual domain name
+# Caddy automatically provisions HTTPS via Let's Encrypt
 
-	handle @transform_port_query {
-		reverse_proxy localhost:{query.XTransformPort} {
-			header_up Host {host}
-			header_up X-Forwarded-For {remote_host}
-			header_up X-Forwarded-Proto {scheme}
-			header_up X-Real-IP {remote_host}
-		}
-	}
+{$DOMAIN:localhost} {
+    # Reverse proxy to Next.js app
+    reverse_proxy web:3000
 
-	handle {
-		reverse_proxy localhost:3000 {
-			header_up Host {host}
-			header_up X-Forwarded-For {remote_host}
-			header_up X-Forwarded-Proto {scheme}
-			header_up X-Real-IP {remote_host}
-		}
-	}
+    # Security headers
+    header {
+        # HTTP Strict Transport Security
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        # Prevent clickjacking
+        X-Frame-Options "SAMEORIGIN"
+        # Prevent MIME type sniffing
+        X-Content-Type-Options "nosniff"
+        # XSS Protection
+        X-XSS-Protection "1; mode=block"
+        # Referrer policy
+        Referrer-Policy "strict-origin-when-cross-origin"
+        # Content Security Policy (adjust as needed)
+        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' https://fonts.gstatic.com https://fonts.googleapis.com; connect-src 'self' wss: ws: https:; frame-src https://meet.jit.si"
+        # Permissions policy
+        Permissions-Policy "camera=(self), microphone=(self), geolocation=()"
+    }
+
+    # WebSocket support for chat service
+    handle /ws/* {
+        reverse_proxy chat:3003
+    }
+
+    # Handle uploaded files (serve statically in production)
+    handle /uploads/* {
+        root * /app/upload
+        file_server
+    }
+
+    # Compression
+    encode gzip zstd
+
+    # Logging
+    log {
+        output file /var/log/caddy/masar.log {
+            roll_size 100mb
+            roll_keep 10
+        }
+        format json
+    }
 }
+
+# Redirect www to non-www (optional, uncomment if needed)
+# www.{$DOMAIN:localhost} {
+#     redir https://{$DOMAIN:localhost}{uri} permanent
+# }

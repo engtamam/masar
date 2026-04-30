@@ -11,7 +11,7 @@ import {
   Users,
   MessageCircle,
   LogOut,
-  Rocket,
+  Compass,
   CheckCircle2,
   Clock,
   FileText,
@@ -356,7 +356,7 @@ export function ConsultantSidebar() {
       {/* Logo */}
       <div className="p-5 flex items-center gap-3 border-b border-emerald-700/50">
         <div className="w-10 h-10 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center">
-          <Rocket className="w-5 h-5 text-emerald-200" />
+          <Compass className="w-5 h-5 text-emerald-200" />
         </div>
         <div>
           <h1 className="font-bold text-lg leading-tight">مَسَار</h1>

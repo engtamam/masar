@@ -326,7 +326,7 @@ function MasarLanding({ onSignUp, onLogin }: MasarLandingProps) {
               size="lg"
               variant="outline"
               onClick={() => scrollTo('about')}
-              className="border-2 border-white/30 text-white hover:bg-white/10 hover:border-white/50 text-lg px-8 py-6 rounded-xl backdrop-blur-sm transition-all"
+              className="border-2 border-emerald-300/60 text-emerald-100 bg-emerald-800/30 hover:bg-emerald-700/40 hover:border-emerald-200/70 text-lg px-8 py-6 rounded-xl backdrop-blur-sm transition-all"
             >
               تعرّف علينا
               <ArrowLeft className="size-4 mr-1" />
