@@ -9,15 +9,14 @@ A free digital incubator platform that prepares entrepreneurs for acceptance int
 ## Quick Start
 
 ```bash
-# 1. Install dependencies
-bun install
-
-# 2. Set up environment
+# 1. Copy environment template
 cp .env.example .env
-# Edit .env — at minimum set JWT_SECRET and admin credentials
 
-# 3. Initialize database (schema + seed)
-make db-setup
+# 2. Generate secure random keys (JWT_SECRET + ENCRYPTION_KEY)
+make gen-keys
+
+# 3. Full setup (install deps + push schema + seed)
+make setup
 
 # 4. Run the app
 make dev
@@ -25,11 +24,13 @@ make dev
 
 Open **http://localhost:3000** — you're live.
 
-Or use the all-in-one command:
+Or step by step:
 
 ```bash
-make setup    # install + generate + push schema + seed
-make dev      # start dev server
+cp .env.example .env      # Create .env from template
+make gen-keys              # Generate secure random keys
+make setup                 # install + generate + push schema + seed
+make dev                   # start dev server
 ```
 
 ---
@@ -69,7 +70,8 @@ ADMIN_NAME=Your Name
 
 | Variable | Description |
 |----------|-------------|
-| `JWT_SECRET` | Secret key for auth tokens — must be a long random string in production |
+| `DATABASE_URL` | Database connection string |
+| `JWT_SECRET` | Secret key for auth tokens — generate with `make gen-keys` |
 
 ### Admin Account (set before seeding)
 
@@ -79,11 +81,26 @@ ADMIN_NAME=Your Name
 | `ADMIN_PASSWORD` | `admin123` | Admin login password |
 | `ADMIN_NAME` | `مدير المنصة` | Admin display name |
 
+### Security
+
+| Variable | Description |
+|----------|-------------|
+| `ENCRYPTION_KEY` | AES-256-CBC key for file encryption — generate with `make gen-keys` |
+
 ### Database
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DATABASE_URL` | `file:./db/custom.db` | SQLite database path (dev) |
+| `DATABASE_URL` | `file:./dev.db` | SQLite database path (dev) |
+| | `file:/app/db/production.db` | SQLite database path (production) |
+| | `postgresql://user:pass@host:5432/masar` | PostgreSQL (for scaling) |
+
+### Domain & Auth (required for production)
+
+| Variable | Description |
+|----------|-------------|
+| `DOMAIN` | Your domain name (e.g., `masar.example.com`) |
+| `NEXTAUTH_URL` | Base URL for email links (e.g., `https://masar.example.com`) |
 
 ### Optional Platform Config
 
@@ -92,7 +109,6 @@ These are stored in the database and can be changed from the **Admin Control Pan
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PLATFORM_NAME` | `مَسَار` | Platform display name |
-| `ENCRYPTION_KEY` | built-in default | AES-256-CBC key for file encryption (change in production!) |
 | `DEFAULT_MONTHLY_QUOTA` | `4` | Monthly booking limit for entrepreneurs |
 | `DEFAULT_SLOT_DURATION` | `30` | Consultation slot duration in minutes |
 | `JITSI_DOMAIN` | `meet.jit.si` | Jitsi Meet domain for video calls |
@@ -131,9 +147,9 @@ Required for email verification and password reset. Without it, email links prin
 
 | Role | How They Access | What They Do |
 |------|----------------|-------------|
-| **Entrepreneur** | Registers from landing page | Follows the 8-milestone journey, books consultations, uploads files, chats with consultants |
+| **Entrepreneur** | Registers from landing page | Follows the 8-milestone journey, books consultations, uploads files, chats with consultants, downloads templates |
 | **Consultant** | Account created by Admin | Reviews & approves milestones, provides consultations, guides entrepreneurs |
-| **Admin** | Seeded during setup | Manages users, specialties, milestones, configs, quotas, monitors chat |
+| **Admin** | Seeded during setup | Manages users, specialties, milestones, configs, quotas, templates, monitors chat |
 
 ### 8-Milestone Journey
 
@@ -156,10 +172,13 @@ Each milestone unlocks only after the previous one is approved by a consultant:
 - **Booking engine** — entrepreneurs book consultation sessions with quota management
 - **Real-time chat** — WebSocket-based messaging between entrepreneurs and consultants
 - **Encrypted file storage** — AES-256-CBC encryption for all uploaded documents
+- **Templates & Downloads** — admin uploads reusable templates (business plans, financial models, etc.), users browse and download them
 - **Jitsi Meet video calls** — integrated video conferencing for consultation sessions
 - **Dynamic platform config** — all settings manageable from admin panel (no code changes needed)
 - **Legal pages from markdown** — privacy policy and terms of service read from `.md` files for easy editing
 - **Dynamic stats** — entrepreneur count on landing page reflects actual database count (hidden if < 10)
+- **Secure key generation** — `make gen-keys` generates cryptographically secure random keys
+- **Backup & Restore** — database and file backups with `make backup` / `make restore`
 
 ---
 
@@ -170,30 +189,32 @@ Each milestone unlocks only after the previous one is approved by a consultant:
 │   ├── privacy-policy.md       # سياسة الخصوصية
 │   └── terms-of-service.md     # شروط وأحكام الاستخدام
 ├── prisma/
-│   ├── schema.prisma           # Database schema
-│   └── seed.ts                 # Seed data (admin + specialties + milestones)
+│   └── schema.prisma           # Database schema (User, Specialty, Milestone, Template, etc.)
+├── scripts/
+│   └── gen-keys.sh             # Secure key generator (JWT_SECRET + ENCRYPTION_KEY)
 ├── src/
 │   ├── app/
 │   │   ├── api/                # API routes
 │   │   │   ├── auth/           # Login, register, verify email, forgot/reset password
-│   │   │   ├── admin/          # Admin-only routes (users, specialties, milestones, configs, quotas, reports, chat)
+│   │   │   ├── admin/          # Admin-only routes (users, specialties, milestones, configs, quotas, reports, chat, templates)
 │   │   │   ├── bookings/       # Booking management + availability
 │   │   │   ├── chat/           # Chat rooms & messages
 │   │   │   ├── files/          # Encrypted file upload/download
 │   │   │   ├── health/         # Health check endpoint
 │   │   │   ├── milestones/     # Milestone progress & approval
 │   │   │   ├── notifications/  # User notifications
-│   │   │   └── stats/          # Public stats (entrepreneur count for landing page)
+│   │   │   ├── stats/          # Public stats (entrepreneur count for landing page)
+│   │   │   └── templates/      # Public template listing + download
 │   │   ├── privacy/            # Privacy policy page (reads from markdown)
 │   │   ├── terms/              # Terms of service page (reads from markdown)
 │   │   ├── globals.css         # Global styles
 │   │   ├── layout.tsx          # Root layout (Arabic RTL + Noto Sans Arabic font)
 │   │   └── page.tsx            # Main SPA entry (routes to landing/auth/dashboards)
 │   ├── components/
-│   │   ├── admin/              # Admin dashboard (users, specialties, milestones, configs, quotas, reports, chat monitor)
+│   │   ├── admin/              # Admin dashboard (users, specialties, milestones, configs, quotas, reports, chat monitor, templates)
 │   │   ├── auth/               # Login, register, forgot/reset password, verify email
-│   │   ├── consultant/         # Consultant dashboard (overview, schedule, entrepreneurs, chat)
-│   │   ├── entrepreneur/       # Entrepreneur dashboard (journey, bookings, chat, files)
+│   │   ├── consultant/         # Consultant dashboard (overview, schedule, entrepreneurs, chat, templates)
+│   │   ├── entrepreneur/       # Entrepreneur dashboard (journey, bookings, chat, files, templates)
 │   │   ├── landing/            # Landing page (MasarLanding) — 10 animated sections
 │   │   ├── legal/              # Legal page renderer (markdown → styled HTML)
 │   │   └── ui/                 # shadcn/ui base components
@@ -218,8 +239,9 @@ Each milestone unlocks only after the previous one is approved by a consultant:
 ├── docker-compose.prod.yml     # Production Docker stack (Caddy + Web + Chat)
 ├── deploy.sh                   # AWS deployment script (install, deploy, update, reset, backup)
 ├── Dockerfile                  # Multi-stage production build
-├── Makefile                    # All commands (dev, db, docker, prod, cleanup)
-└── .env.example                # Environment variable template
+├── Makefile                    # All commands (dev, db, docker, prod, backup, gen-keys, cleanup)
+├── .env.example                # Environment variable template (development)
+└── .env.production             # Environment variable template (production)
 ```
 
 ---
@@ -231,6 +253,7 @@ Each milestone unlocks only after the previous one is approved by a consultant:
 | Command | Description |
 |---------|-------------|
 | `make setup` | First-time setup: install deps + push schema + seed |
+| `make gen-keys` | Generate secure random JWT_SECRET + ENCRYPTION_KEY and update .env |
 | `make dev` | Start Next.js dev server on port 3000 |
 | `make fresh` | Delete everything and start from scratch |
 
@@ -252,6 +275,16 @@ Each milestone unlocks only after the previous one is approved by a consultant:
 | `make db-reset` | Reset database (destructive) |
 | `make db-reset-fresh` | Delete DB file + push schema + seed |
 | `make seed` | Run seed script only (idempotent) |
+
+### Backup & Restore
+
+| Command | Description |
+|---------|-------------|
+| `make backup` | Backup dev database + uploaded files + .env to ./backups/ |
+| `make restore DB=backups/file.sqlite` | Restore database from backup |
+| `make restore DB=file.sqlite UPLOAD=file.tar.gz` | Restore database + uploaded files |
+| `make restore DB=file.sqlite TEMPLATES=file.tar.gz` | Restore database + templates |
+| `make backup-list` | List all available backups |
 
 ### Code Quality
 
@@ -289,7 +322,14 @@ Each milestone unlocks only after the previous one is approved by a consultant:
 | `make prod-reset` | Wipe production data and re-seed |
 | `make prod-update` | Rebuild and redeploy (no data loss) |
 | `make prod-backup` | Backup production database to ./backups/ |
+| `make prod-restore DB=file.sqlite` | Restore production database |
 | `make prod-seed` | Run seed in production container |
+
+### Security
+
+| Command | Description |
+|---------|-------------|
+| `make gen-keys` | Generate cryptographically secure JWT_SECRET + ENCRYPTION_KEY |
 
 ### Cleanup
 
@@ -298,6 +338,31 @@ Each milestone unlocks only after the previous one is approved by a consultant:
 | `make clean` | Remove .next and cache |
 | `make clean-all` | Remove node_modules too |
 | `make nuke` | Delete EVERYTHING including .env (requires typing "DESTROY") |
+
+---
+
+## Templates & Downloads
+
+Admins can upload reusable document templates that entrepreneurs and consultants can browse and download.
+
+### Template Categories
+
+| Category | Arabic | Description |
+|----------|--------|-------------|
+| Business Plan | خطة عمل | Business plan templates |
+| Financial | مالي | Financial models and spreadsheets |
+| Legal | قانوني | Legal document templates |
+| Marketing | تسويقي | Marketing plan templates |
+| Presentation | عرض تقديمي | Pitch deck and presentation templates |
+| Other | أخرى | Any other useful documents |
+
+### How It Works
+
+1. **Admin** uploads templates from the admin dashboard (Templates tab)
+2. Templates are stored encrypted with all other platform files
+3. **Entrepreneurs & Consultants** browse and download from their dashboard
+4. Each download increments a counter for tracking
+5. Admin can toggle templates active/inactive, edit details, or delete
 
 ---
 
@@ -366,7 +431,7 @@ ssh -i masar-key.pem ubuntu@YOUR_EC2_PUBLIC_IP
 # If it asks "Are you sure you want to continue connecting?" → type yes
 ```
 
-You're now inside your server! 🎉
+You're now inside your server!
 
 ### Step 4: Install Docker on the Server
 
@@ -422,6 +487,9 @@ cd masar
 # Copy the production template
 cp .env.production .env
 
+# Generate secure random keys automatically
+make gen-keys
+
 # Edit with your values
 nano .env
 ```
@@ -432,12 +500,6 @@ nano .env
 # Your domain name (must point to your EC2 IP — see Step 7)
 DOMAIN=masar.yourdomain.com
 
-# Generate a strong secret: openssl rand -hex 32
-JWT_SECRET=paste-the-generated-secret-here
-
-# Generate another strong secret for encryption: openssl rand -hex 32
-ENCRYPTION_KEY=paste-another-generated-secret-here
-
 # Admin account (this is the ONLY account created automatically)
 ADMIN_EMAIL=admin@yourdomain.com
 ADMIN_PASSWORD=YourVeryStrongPassword123!
@@ -447,13 +509,7 @@ ADMIN_NAME=مدير المنصة
 NEXTAUTH_URL=https://masar.yourdomain.com
 ```
 
-Generate secrets on the server:
-
-```bash
-# Run these and copy the output into .env
-echo "JWT_SECRET=$(openssl rand -hex 32)"
-echo "ENCRYPTION_KEY=$(openssl rand -hex 32)"
-```
+`make gen-keys` already generated secure `JWT_SECRET` and `ENCRYPTION_KEY` for you. No manual generation needed.
 
 **Optional: Email service** (for email verification and password reset):
 
@@ -509,7 +565,7 @@ This will:
 5. Seed the database with admin account + specialties + milestones
 6. Print your site URL
 
-Visit **https://masar.yourdomain.com** — your platform is live! 🚀
+Visit **https://masar.yourdomain.com** — your platform is live!
 
 ### Step 9: Post-Deployment Checklist
 
@@ -522,6 +578,7 @@ Visit **https://masar.yourdomain.com** — your platform is live! 🚀
 - [ ] HTTPS certificate is valid (lock icon in browser)
 - [ ] Terms of Service page loads at `/terms`
 - [ ] Privacy Policy page loads at `/privacy`
+- [ ] Templates tab visible in admin dashboard
 
 ### Day-to-Day Management
 
@@ -536,8 +593,14 @@ bash deploy.sh --logs
 # Check service status
 bash deploy.sh --status
 
-# Backup database
-bash deploy.sh --backup
+# Backup database + files
+make backup
+
+# List backups
+make backup-list
+
+# Restore from backup
+make restore DB=backups/masar_db_TIMESTAMP.sqlite
 
 # Update code and redeploy (after git pull)
 bash deploy.sh --update
@@ -554,7 +617,8 @@ Or use Makefile commands:
 ```bash
 make prod-logs      # View logs
 make prod-status    # Check status
-make prod-backup    # Backup DB
+make prod-backup    # Backup DB + files
+make prod-restore DB=backups/file.sqlite  # Restore production DB
 make prod-update    # Update + redeploy
 make prod-reset     # Full reset
 make prod-seed      # Reseed database
@@ -593,10 +657,10 @@ docker image prune -f
 crontab -e
 
 # Add daily backup at 3 AM
-0 3 * * * cd /home/ubuntu/masar && bash deploy.sh --backup >> /home/ubuntu/masar/backups/cron.log 2>&1
+0 3 * * * cd /home/ubuntu/masar && make backup >> /home/ubuntu/masar/backups/cron.log 2>&1
 ```
 
-Backups are saved to `./backups/` and auto-rotated (keeps last 10).
+Backups are saved to `./backups/`.
 
 ### Monitoring the Server
 
@@ -669,6 +733,19 @@ bash deploy.sh --seed
 bash deploy.sh --reset
 ```
 
+**Need to restore a backup?**
+
+```bash
+# List available backups
+make backup-list
+
+# Restore from a specific backup
+make restore DB=backups/masar_db_TIMESTAMP.sqlite
+
+# Restore with uploaded files too
+make restore DB=backups/masar_db_TIMESTAMP.sqlite UPLOAD=backups/masar_upload_TIMESTAMP.tar.gz
+```
+
 **Port already in use?**
 
 ```bash
@@ -678,21 +755,6 @@ sudo lsof -i :443
 
 # Stop all Docker containers
 docker compose -f docker-compose.prod.yml down
-```
-
-**Need to restore a backup?**
-
-```bash
-# Stop the web service
-docker compose -f docker-compose.prod.yml stop web
-
-# Copy backup into the Docker volume
-docker compose -f docker-compose.prod.yml cp ./backups/masar_db_TIMESTAMP.sqlite.gz web:/app/db/
-docker compose -f docker-compose.prod.yml exec web gunzip /app/db/masar_db_TIMESTAMP.sqlite.gz
-docker compose -f docker-compose.prod.yml exec web mv /app/db/masar_db_TIMESTAMP.sqlite /app/db/production.db
-
-# Restart
-docker compose -f docker-compose.prod.yml start web
 ```
 
 ### Cost Estimate (AWS)
@@ -730,6 +792,7 @@ These pages are linked from:
 | Method | Route | Description |
 |--------|-------|-------------|
 | GET | `/api/stats` | Public platform stats (entrepreneur count) |
+| GET | `/api/templates` | List active templates (with category filter) |
 | POST | `/api/auth/login` | Login |
 | POST | `/api/auth/register` | Register (entrepreneur only) |
 | POST | `/api/auth/forgot-password` | Request password reset |
@@ -755,6 +818,7 @@ These pages are linked from:
 | GET/POST | `/api/files` | List/upload encrypted files |
 | GET/DELETE | `/api/files/[id]` | Download/delete file |
 | GET/PATCH/DELETE | `/api/notifications` | List/mark/clear notifications |
+| GET | `/api/templates/[id]/download` | Download a template (increments counter) |
 
 ### Admin Only
 
@@ -767,6 +831,8 @@ These pages are linked from:
 | GET/PATCH | `/api/admin/quotas` | Manage booking quotas |
 | GET | `/api/admin/reports` | Dashboard statistics |
 | GET | `/api/admin/chat` | Monitor chat rooms |
+| GET/POST | `/api/admin/templates` | List/create templates (with file upload) |
+| PATCH/DELETE | `/api/admin/templates/[id]` | Update/delete a template |
 
 ---
 
