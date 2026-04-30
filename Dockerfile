@@ -32,9 +32,9 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
-# Copy prisma schema and seed script (needed for seed command inside container)
+# Copy prisma schema and lib files (needed for seed command inside container)
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/src/lib/seed.ts ./src/lib/seed.ts
+COPY --from=builder /app/src/lib ./src/lib
 
 # Create data directories with correct permissions
 RUN mkdir -p /app/db /app/upload && chown -R nextjs:nodejs /app/db /app/upload
