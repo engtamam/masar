@@ -29,8 +29,9 @@ help: ## Show this help message
 # QUICK START
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-setup: ## First-time setup: install deps + push schema + seed data
+setup: ## First-time setup: install bun + deps + push schema + seed data
 	@echo "🚀 Setting up Masar Platform..."
+	@which bun > /dev/null 2>&1 || { echo "📦 Installing Bun..."; curl -fsSL https://bun.sh/install | bash; . ~/.bashrc; }
 	bun install
 	bun run db:generate
 	bun run db:push
@@ -52,6 +53,7 @@ fresh: ## Delete everything, reinstall, and start fresh
 	rm -rf node_modules
 	rm -rf db/custom.db
 	rm -rf db/production.db
+	@which bun > /dev/null 2>&1 || { echo "📦 Installing Bun..."; curl -fsSL https://bun.sh/install | bash; . ~/.bashrc; }
 	bun install
 	bun run db:generate
 	bun run db:push
