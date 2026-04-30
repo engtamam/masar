@@ -86,6 +86,11 @@ full_deploy() {
 
     check_prerequisites
 
+    # Update lockfiles (ensures bun.lock matches package.json)
+    log "Updating lockfiles..."
+    bun install
+    cd mini-services/chat-service && bun install && cd ../..
+
     # Build Docker images
     log "Building Docker images (this may take a few minutes)..."
     docker compose -f ${COMPOSE_FILE} build --no-cache
@@ -154,6 +159,11 @@ update_deploy() {
         log "Pulling latest code..."
         git pull origin main || warn "Git pull failed, continuing with local code..."
     fi
+
+    # Update lockfiles (ensures bun.lock matches package.json)
+    log "Updating lockfiles..."
+    bun install
+    cd mini-services/chat-service && bun install && cd ../..
 
     # Rebuild and restart
     log "Rebuilding Docker images..."
