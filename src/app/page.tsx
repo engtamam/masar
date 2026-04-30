@@ -5,8 +5,9 @@
 // Arabic RTL interface with English codebase
 
 import { useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
-import { LoginPage, RegisterPage } from '@/components/auth/AuthPages';
+import { LoginPage, RegisterPage, ForgotPasswordPage, ResetPasswordPage, VerifyEmailPage } from '@/components/auth/AuthPages';
 import { MasarLanding } from '@/components/landing/MasarLanding';
 import {
   EntrepreneurSidebar,
@@ -29,6 +30,27 @@ function hydrateOnce() {
     _hydrated = true;
     useAppStore.getState().hydrate();
   }
+}
+
+// Wrapper component to use useSearchParams (requires Suspense boundary)
+function TokenRouteHandler() {
+  const searchParams = useSearchParams();
+  const { setCurrentView } = useAppStore();
+
+  useEffect(() => {
+    // Handle email verification token from URL
+    const verifyToken = searchParams.get('token');
+    const path = window.location.pathname;
+
+    if (verifyToken && path === '/verify-email') {
+      // Token will be handled by VerifyEmailPage component
+    }
+    if (verifyToken && path === '/reset-password') {
+      // Token will be handled by ResetPasswordPage component
+    }
+  }, [searchParams, setCurrentView]);
+
+  return null;
 }
 
 export default function Home() {
@@ -61,6 +83,20 @@ export default function Home() {
     }
   }, [token, user, setUser, logout]);
 
+  // Handle URL-based token routes (reset-password, verify-email)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      const tokenParam = url.searchParams.get('token');
+
+      if (tokenParam && url.pathname === '/reset-password') {
+        setCurrentView('reset-password');
+      } else if (tokenParam && url.pathname === '/verify-email') {
+        setCurrentView('verify-email');
+      }
+    }
+  }, [setCurrentView]);
+
   // Auth pages (standalone, no sidebar)
   if (currentView === 'login') {
     return <LoginPage />;
@@ -68,6 +104,22 @@ export default function Home() {
 
   if (currentView === 'register') {
     return <RegisterPage />;
+  }
+
+  if (currentView === 'forgot-password') {
+    return <ForgotPasswordPage />;
+  }
+
+  if (currentView === 'reset-password') {
+    const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const resetToken = urlParams?.get('token') || '';
+    return <ResetPasswordPage token={resetToken} />;
+  }
+
+  if (currentView === 'verify-email') {
+    const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const verifyToken = urlParams?.get('token') || '';
+    return <VerifyEmailPage token={verifyToken} />;
   }
 
   // Authenticated dashboards

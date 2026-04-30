@@ -698,3 +698,37 @@ Stage Summary:
 - deploy.sh handles full lifecycle: deploy, update, reset, backup
 - Auth flow clarified: entrepreneurs register, consultants/admins created by admin
 - All icon branding consistent (Compass across all pages)
+
+---
+Task ID: implement-remaining-features
+Agent: main
+Task: Implement all remaining features: email verification, password reset, health check, monitoring
+
+Work Log:
+- Updated Prisma schema: added emailVerified, emailVerifyToken, emailVerifyExpires, passwordResetToken, passwordResetExpires to User model
+- Created email service (src/lib/email.ts) with Resend API integration + console fallback, HTML email templates for verification and password reset
+- Created 5 new API routes:
+  - POST /api/auth/forgot-password - Request password reset email
+  - POST /api/auth/reset-password - Reset password with token
+  - POST /api/auth/verify-email - Verify email with token
+  - POST /api/auth/resend-verification - Resend verification email
+  - GET /api/health - Health check endpoint with DB connectivity, metrics, system info
+- Updated API client (src/lib/api.ts) with forgotPassword, resetPassword, verifyEmail, resendVerification methods
+- Updated register route to send verification email after registration
+- Added 3 new auth pages to AuthPages.tsx:
+  - ForgotPasswordPage - Email input, sends reset link, success confirmation
+  - ResetPasswordPage - New password form with token validation
+  - VerifyEmailPage - Auto-verifies on load with loading/success/error states
+- Added "نسيت كلمة المرور؟" link to login page
+- Updated main page.tsx to handle forgot-password, reset-password, verify-email views
+- Updated store with new AppView types
+- Updated seed.ts to mark all seed users as emailVerified: true
+- Marked existing DB users as emailVerified
+- Pushed schema changes to database
+- Build verified successfully with all new routes
+
+Stage Summary:
+- Email verification: Full flow with token generation, HTML emails, Resend integration + console fallback
+- Password reset: Secure token-based flow with 1hr expiry, email enumeration protection
+- Health monitoring: /api/health endpoint with DB check, metrics, uptime, memory info
+- All features compile and build successfully

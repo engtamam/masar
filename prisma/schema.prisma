@@ -29,8 +29,18 @@ model User {
   avatarUrl    String?
   phone        String?
   isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+
+  // Email verification
+  emailVerified      Boolean  @default(false)
+  emailVerifyToken   String?  @unique
+  emailVerifyExpires DateTime?
+
+  // Password reset
+  passwordResetToken   String?  @unique
+  passwordResetExpires DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
   consultantProfile   ConsultantProfile?

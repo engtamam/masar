@@ -206,6 +206,42 @@ export const authApi = {
    * Get current authenticated user profile
    */
   me: () => request<MeResponse>('/auth/me'),
+
+  /**
+   * Request password reset email
+   */
+  forgotPassword: (email: string) =>
+    request<{ message: string }>('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+
+  /**
+   * Reset password with token from email
+   */
+  resetPassword: (token: string, password: string) =>
+    request<{ message: string }>('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, password }),
+    }),
+
+  /**
+   * Verify email with token from email
+   */
+  verifyEmail: (token: string) =>
+    request<{ message: string; email: string }>('/auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    }),
+
+  /**
+   * Resend email verification
+   */
+  resendVerification: (email: string) =>
+    request<{ message: string }>('/auth/resend-verification', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
 };
 
 // ========== Milestones API ==========

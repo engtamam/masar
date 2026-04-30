@@ -83,6 +83,7 @@ async function main() {
       passwordHash: adminPasswordHash,
       role: 'ADMIN',
       isActive: true,
+      emailVerified: true,
     },
   })
   console.log(`  ✓ Admin user: admin@platform.sa / admin123`)
@@ -100,6 +101,7 @@ async function main() {
       role: 'CONSULTANT',
       phone: '+966501234567',
       isActive: true,
+      emailVerified: true,
     },
   })
 
@@ -138,6 +140,7 @@ async function main() {
       role: 'ENTREPRENEUR',
       phone: '+966509876543',
       isActive: true,
+      emailVerified: true,
     },
   })
 
@@ -224,6 +227,7 @@ async function main() {
       role: 'CONSULTANT',
       phone: '+966507654321',
       isActive: true,
+      emailVerified: true,
     },
   })
 

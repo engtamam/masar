@@ -6,7 +6,7 @@
 // The system automatically routes each role to their dedicated dashboard
 
 import { useState, type FormEvent } from 'react';
-import { Compass, Mail, Lock, User, Briefcase, Eye, EyeOff, Loader2, Shield, Users } from 'lucide-react';
+import { Compass, Mail, Lock, User, Briefcase, Eye, EyeOff, Loader2, Shield, Users, CheckCircle, KeyRound, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useAppStore, getDefaultView } from '@/lib/store';
@@ -247,6 +247,17 @@ export function LoginPage() {
             </Button>
           </form>
 
+          {/* Forgot password link */}
+          <div className="text-left">
+            <button
+              type="button"
+              onClick={() => setCurrentView('forgot-password')}
+              className="text-sm text-emerald-600 hover:text-emerald-700 hover:underline transition-colors"
+            >
+              نسيت كلمة المرور؟
+            </button>
+          </div>
+
           {/* Role info box */}
           <RoleInfoBox />
         </CardContent>
@@ -328,7 +339,7 @@ export function RegisterPage() {
       const defaultView = getDefaultView(user.role);
       setCurrentView(defaultView);
 
-      toast.success('تم إنشاء الحساب بنجاح');
+      toast.success('تم إنشاء الحساب بنجاح! تحقق من بريدك الإلكتروني لتأكيد حسابك.');
     } catch {
       toast.error('حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.');
     } finally {
@@ -517,6 +528,301 @@ export function RegisterPage() {
             </button>
           </p>
         </CardFooter>
+      </Card>
+    </AuthShell>
+  );
+}
+
+// ========== ForgotPasswordPage ==========
+
+export function ForgotPasswordPage() {
+  const { setCurrentView } = useAppStore();
+  const [email, setEmail] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSent, setIsSent] = useState(false);
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!email.trim()) {
+      toast.error('يرجى إدخال البريد الإلكتروني');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await authApi.forgotPassword(email.trim());
+      if (result.success) {
+        setIsSent(true);
+        toast.success('تم إرسال رابط إعادة التعيين!');
+      }
+    } catch {
+      toast.error('حدث خطأ غير متوقع');
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  return (
+    <AuthShell>
+      <AuthLogo />
+      <Card className="border-0 shadow-2xl bg-white/95 backdrop-blur-md">
+        <CardHeader className="text-center pb-0">
+          <div className="mx-auto mb-4 w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center">
+            <KeyRound className="w-7 h-7 text-emerald-600" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900">نسيت كلمة المرور؟</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            أدخل بريدك الإلكتروني وسنرسل لك رابط إعادة التعيين
+          </p>
+        </CardHeader>
+
+        <CardContent>
+          {isSent ? (
+            <div className="text-center py-4">
+              <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center">
+                <Mail className="w-8 h-8 text-emerald-600" />
+              </div>
+              <p className="text-gray-700 mb-2 font-semibold">تحقق من بريدك الإلكتروني</p>
+              <p className="text-sm text-muted-foreground">
+                إذا كان هناك حساب مرتبط بهذا البريد، ستصلك رسالة تحتوي على رابط إعادة تعيين كلمة المرور.
+              </p>
+              <Button
+                onClick={() => setCurrentView('login')}
+                className="mt-6 bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                <ArrowRight className="w-4 h-4 ml-2" />
+                العودة لتسجيل الدخول
+              </Button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="space-y-2">
+                <Label htmlFor="forgot-email" className="text-gray-700">البريد الإلكتروني</Label>
+                <div className="relative">
+                  <Mail className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    id="forgot-email"
+                    type="email"
+                    placeholder="أدخل بريدك الإلكتروني"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="pr-10"
+                    dir="ltr"
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+              <Button
+                type="submit"
+                className="w-full h-11 text-base font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md transition-all"
+                disabled={isLoading}
+                size="lg"
+              >
+                {isLoading ? (
+                  <><Loader2 className="w-5 h-5 animate-spin" /><span>جاري الإرسال...</span></>
+                ) : (
+                  'إرسال رابط إعادة التعيين'
+                )}
+              </Button>
+            </form>
+          )}
+        </CardContent>
+
+        {!isSent && (
+          <CardFooter className="justify-center pb-6">
+            <button
+              type="button"
+              onClick={() => setCurrentView('login')}
+              className="text-sm text-emerald-600 hover:text-emerald-700 hover:underline transition-colors"
+            >
+              العودة لتسجيل الدخول
+            </button>
+          </CardFooter>
+        )}
+      </Card>
+    </AuthShell>
+  );
+}
+
+// ========== ResetPasswordPage ==========
+
+export function ResetPasswordPage({ token }: { token: string }) {
+  const { setCurrentView } = useAppStore();
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isDone, setIsDone] = useState(false);
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (password.length < 6) {
+      toast.error('يجب أن تكون كلمة المرور 6 أحرف على الأقل');
+      return;
+    }
+    if (password !== confirmPassword) {
+      toast.error('كلمتا المرور غير متطابقتين');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await authApi.resetPassword(token, password);
+      if (result.success) {
+        setIsDone(true);
+        toast.success('تم إعادة تعيين كلمة المرور بنجاح!');
+      } else {
+        toast.error(result.error || 'الرابط غير صالح أو منتهي الصلاحية');
+      }
+    } catch {
+      toast.error('حدث خطأ غير متوقع');
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  return (
+    <AuthShell>
+      <AuthLogo />
+      <Card className="border-0 shadow-2xl bg-white/95 backdrop-blur-md">
+        <CardHeader className="text-center pb-0">
+          <div className="mx-auto mb-4 w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center">
+            <Lock className="w-7 h-7 text-emerald-600" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900">إعادة تعيين كلمة المرور</h2>
+          <p className="text-sm text-muted-foreground mt-1">أدخل كلمة المرور الجديدة</p>
+        </CardHeader>
+
+        <CardContent>
+          {isDone ? (
+            <div className="text-center py-4">
+              <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center">
+                <CheckCircle className="w-8 h-8 text-emerald-600" />
+              </div>
+              <p className="text-gray-700 mb-2 font-semibold">تم تغيير كلمة المرور بنجاح!</p>
+              <p className="text-sm text-muted-foreground">يمكنك الآن تسجيل الدخول بكلمة المرور الجديدة.</p>
+              <Button
+                onClick={() => setCurrentView('login')}
+                className="mt-6 bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                تسجيل الدخول
+              </Button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="reset-password" className="text-gray-700">كلمة المرور الجديدة</Label>
+                <div className="relative">
+                  <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    id="reset-password"
+                    type="password"
+                    placeholder="أدخل كلمة المرور الجديدة (6 أحرف على الأقل)"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pr-10"
+                    dir="ltr"
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="reset-confirm" className="text-gray-700">تأكيد كلمة المرور</Label>
+                <div className="relative">
+                  <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    id="reset-confirm"
+                    type="password"
+                    placeholder="أعد إدخال كلمة المرور الجديدة"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="pr-10"
+                    dir="ltr"
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+              <Button
+                type="submit"
+                className="w-full h-11 text-base font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md transition-all"
+                disabled={isLoading}
+                size="lg"
+              >
+                {isLoading ? (
+                  <><Loader2 className="w-5 h-5 animate-spin" /><span>جاري إعادة التعيين...</span></>
+                ) : (
+                  'إعادة تعيين كلمة المرور'
+                )}
+              </Button>
+            </form>
+          )}
+        </CardContent>
+      </Card>
+    </AuthShell>
+  );
+}
+
+// ========== VerifyEmailPage ==========
+
+export function VerifyEmailPage({ token }: { token: string }) {
+  const { setCurrentView } = useAppStore();
+  const [isVerifying, setIsVerifying] = useState(true);
+  const [isVerified, setIsVerified] = useState(false);
+  const [error, setError] = useState('');
+
+  useState(() => {
+    authApi.verifyEmail(token).then((result) => {
+      setIsVerifying(false);
+      if (result.success) {
+        setIsVerified(true);
+      } else {
+        setError(result.error || 'فشل التحقق من البريد الإلكتروني');
+      }
+    }).catch(() => {
+      setIsVerifying(false);
+      setError('حدث خطأ غير متوقع');
+    });
+  });
+
+  return (
+    <AuthShell>
+      <AuthLogo />
+      <Card className="border-0 shadow-2xl bg-white/95 backdrop-blur-md">
+        <CardContent className="py-10 text-center">
+          {isVerifying ? (
+            <>
+              <Loader2 className="w-10 h-10 text-emerald-600 animate-spin mx-auto mb-4" />
+              <p className="text-gray-700 font-semibold">جاري التحقق من بريدك الإلكتروني...</p>
+            </>
+          ) : isVerified ? (
+            <>
+              <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center">
+                <CheckCircle className="w-8 h-8 text-emerald-600" />
+              </div>
+              <p className="text-gray-700 font-semibold mb-2">تم تأكيد بريدك الإلكتروني بنجاح!</p>
+              <p className="text-sm text-muted-foreground mb-6">يمكنك الآن تسجيل الدخول والبدء في رحلتك.</p>
+              <Button
+                onClick={() => setCurrentView('login')}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                تسجيل الدخول
+              </Button>
+            </>
+          ) : (
+            <>
+              <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
+                <Mail className="w-8 h-8 text-red-500" />
+              </div>
+              <p className="text-gray-700 font-semibold mb-2">فشل التحقق</p>
+              <p className="text-sm text-muted-foreground mb-6">{error}</p>
+              <Button
+                onClick={() => setCurrentView('login')}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                العودة لتسجيل الدخول
+              </Button>
+            </>
+          )}
+        </CardContent>
       </Card>
     </AuthShell>
   );
