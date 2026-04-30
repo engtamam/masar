@@ -320,37 +320,392 @@ Without the chat service, chat still works via API polling (5s interval).
 
 ---
 
-## Production Deployment (AWS)
+## AWS Production Deployment — Full Guide
+
+This guide walks you through deploying Masar to AWS EC2 from scratch. No prior AWS setup needed.
+
+### Step 1: Create an AWS Account
+
+1. Go to [aws.amazon.com](https://aws.amazon.com) and create an account
+2. You'll need a credit card on file (free tier eligible)
+3. Choose a region close to your users (e.g., `me-south-1` Bahrain for Middle East)
+
+### Step 2: Launch an EC2 Instance
+
+1. Go to **AWS Console → EC2 → Launch Instance**
+2. Configure:
+
+| Setting | Value | Why |
+|---------|-------|-----|
+| **Name** | `masar-production` | Easy to identify |
+| **AMI** | Ubuntu 22.04 LTS (or 24.04) | Required for our setup scripts |
+| **Instance type** | `t3.medium` (2 vCPU, 4GB RAM) | Minimum for Docker + Next.js |
+| | `t3.small` (2 vCPU, 2GB RAM) | Works but may be slow under load |
+| **Storage** | 20 GB SSD (gp3) | Enough for app + database + uploads |
+| **Key pair** | Create new → `masar-key` | Save the `.pem` file — this is your SSH key |
+
+3. **Security Group** — Add these inbound rules:
+
+| Type | Port | Source | Why |
+|------|------|--------|-----|
+| SSH | 22 | Your IP only | Secure server access |
+| HTTP | 80 | 0.0.0.0/0 | Let's Encrypt HTTP challenge |
+| HTTPS | 443 | 0.0.0.0/0 | Production website traffic |
+
+4. Click **Launch Instance**
+
+### Step 3: Connect via SSH
 
 ```bash
-# One-command deploy (installs Docker, sets up everything)
-bash deploy.sh deploy
+# Move to your key file (downloaded in Step 2)
+chmod 400 masar-key.pem
 
-# Or manually:
-make prod-up
+# Find your EC2 public IP in AWS Console → EC2 → Instances
+ssh -i masar-key.pem ubuntu@YOUR_EC2_PUBLIC_IP
+
+# If it asks "Are you sure you want to continue connecting?" → type yes
 ```
 
-### Production Requirements
+You're now inside your server! 🎉
 
-1. **Set these in `.env`** before deploying:
+### Step 4: Install Docker on the Server
+
+```bash
+# Update system packages
+sudo apt update && sudo apt upgrade -y
+
+# Install Docker
+curl -fsSL https://get.docker.com | sh
+
+# Add your user to the docker group (so you don't need sudo every time)
+sudo usermod -aG docker ubuntu
+
+# Apply the group change
+newgrp docker
+
+# Verify Docker works
+docker --version
+docker compose version
+```
+
+### Step 5: Upload the Project to the Server
+
+**Option A: Clone from Git (recommended)**
+
+If your code is on GitHub/GitLab:
+
+```bash
+# Install git (usually pre-installed on Ubuntu)
+sudo apt install -y git
+
+# Clone your repo
+git clone https://github.com/YOUR_USERNAME/masar.git
+cd masar
+```
+
+**Option B: Upload directly via SCP**
+
+From your **local machine** (not the server):
+
+```bash
+# Upload the entire project folder
+scp -i masar-key.pem -r /path/to/masar ubuntu@YOUR_EC2_PUBLIC_IP:/home/ubuntu/masar
+
+# Then SSH back in
+ssh -i masar-key.pem ubuntu@YOUR_EC2_PUBLIC_IP
+cd masar
+```
+
+### Step 6: Configure Environment Variables
+
+```bash
+# Copy the production template
+cp .env.production .env
+
+# Edit with your values
+nano .env
+```
+
+**You MUST change these values:**
 
 ```env
-JWT_SECRET=your-very-long-random-secret-key
-ENCRYPTION_KEY=your-very-long-encryption-key
+# Your domain name (must point to your EC2 IP — see Step 7)
+DOMAIN=masar.yourdomain.com
+
+# Generate a strong secret: openssl rand -hex 32
+JWT_SECRET=paste-the-generated-secret-here
+
+# Generate another strong secret for encryption: openssl rand -hex 32
+ENCRYPTION_KEY=paste-another-generated-secret-here
+
+# Admin account (this is the ONLY account created automatically)
 ADMIN_EMAIL=admin@yourdomain.com
-ADMIN_PASSWORD=a-secure-password
-ADMIN_NAME=Platform Admin
-DOMAIN=yourdomain.com
+ADMIN_PASSWORD=YourVeryStrongPassword123!
+ADMIN_NAME=مدير المنصة
+
+# Base URL for email links
+NEXTAUTH_URL=https://masar.yourdomain.com
 ```
 
-2. **Caddy** automatically provisions HTTPS via Let's Encrypt
+Generate secrets on the server:
 
-3. **The deploy script** handles:
-   - Docker installation
-   - Container orchestration (Caddy + Web + Chat)
-   - Database initialization and seeding
-   - SSL certificate provisioning
-   - Backups and updates
+```bash
+# Run these and copy the output into .env
+echo "JWT_SECRET=$(openssl rand -hex 32)"
+echo "ENCRYPTION_KEY=$(openssl rand -hex 32)"
+```
+
+**Optional: Email service** (for email verification and password reset):
+
+```env
+RESEND_API_KEY=re_your_key_here
+EMAIL_FROM=noreply@masar.yourdomain.com
+```
+
+Without email service, verification/reset links print to the server console instead.
+
+### Step 7: Point Your Domain to the Server
+
+1. Go to your domain registrar (GoDaddy, Namecheap, Route 53, etc.)
+2. Add a DNS **A Record**:
+
+| Type | Name | Value |
+|------|------|-------|
+| A | `masar` (or `@` for root domain) | YOUR_EC2_PUBLIC_IP |
+
+3. Wait 5-30 minutes for DNS propagation
+
+4. Verify it worked:
+
+```bash
+# Run from your local machine
+ping masar.yourdomain.com
+# Should resolve to your EC2 IP
+```
+
+**Using AWS Route 53 (optional but recommended):**
+
+1. AWS Console → Route 53 → Hosted Zones → Create Hosted Zone
+2. Enter your domain name
+3. Go to your domain registrar and change nameservers to the AWS ones
+4. Create an A Record pointing to your EC2 IP
+5. Enable the www redirect (optional)
+
+### Step 8: Deploy!
+
+```bash
+# Make the deploy script executable
+chmod +x deploy.sh
+
+# Deploy everything (Docker build + start + seed database)
+bash deploy.sh
+```
+
+This will:
+1. Check all prerequisites
+2. Build Docker images (takes 3-5 minutes)
+3. Start 3 containers: Caddy (HTTPS) + Web (Next.js) + Chat (Socket.IO)
+4. Wait for health checks to pass
+5. Seed the database with admin account + specialties + milestones
+6. Print your site URL
+
+Visit **https://masar.yourdomain.com** — your platform is live! 🚀
+
+### Step 9: Post-Deployment Checklist
+
+- [ ] Site loads at `https://masar.yourdomain.com`
+- [ ] Landing page shows with Arabic content
+- [ ] You can login with admin credentials from `.env`
+- [ ] Admin dashboard loads
+- [ ] You can create a consultant from the admin panel
+- [ ] You can register as entrepreneur from the landing page
+- [ ] HTTPS certificate is valid (lock icon in browser)
+- [ ] Terms of Service page loads at `/terms`
+- [ ] Privacy Policy page loads at `/privacy`
+
+### Day-to-Day Management
+
+```bash
+# SSH into the server
+ssh -i masar-key.pem ubuntu@YOUR_EC2_PUBLIC_IP
+cd masar
+
+# View live logs
+bash deploy.sh --logs
+
+# Check service status
+bash deploy.sh --status
+
+# Backup database
+bash deploy.sh --backup
+
+# Update code and redeploy (after git pull)
+bash deploy.sh --update
+
+# Wipe everything and start fresh (DANGEROUS)
+bash deploy.sh --reset
+
+# Reseed database
+bash deploy.sh --seed
+```
+
+Or use Makefile commands:
+
+```bash
+make prod-logs      # View logs
+make prod-status    # Check status
+make prod-backup    # Backup DB
+make prod-update    # Update + redeploy
+make prod-reset     # Full reset
+make prod-seed      # Reseed database
+make prod-down      # Stop all services
+make prod-up        # Start all services
+```
+
+### Updating the Platform
+
+When you have code changes to deploy:
+
+```bash
+# SSH into the server
+ssh -i masar-key.pem ubuntu@YOUR_EC2_PUBLIC_IP
+cd masar
+
+# Pull latest code (if using git)
+git pull origin main
+
+# Rebuild and restart (zero downtime)
+bash deploy.sh --update
+```
+
+Or manually:
+
+```bash
+docker compose -f docker-compose.prod.yml build
+docker compose -f docker-compose.prod.yml up -d --remove-orphans
+docker image prune -f
+```
+
+### Setting Up Automated Backups (Cron)
+
+```bash
+# Edit crontab
+crontab -e
+
+# Add daily backup at 3 AM
+0 3 * * * cd /home/ubuntu/masar && bash deploy.sh --backup >> /home/ubuntu/masar/backups/cron.log 2>&1
+```
+
+Backups are saved to `./backups/` and auto-rotated (keeps last 10).
+
+### Monitoring the Server
+
+```bash
+# Check disk space
+df -h
+
+# Check memory usage
+free -m
+
+# Check Docker container resource usage
+docker stats --no-stream
+
+# Check if containers are running
+docker compose -f docker-compose.prod.yml ps
+
+# Check application health
+curl -s http://localhost:3000/api/health | python3 -m json.tool
+```
+
+### Scaling Considerations
+
+| Users | Recommended Setup |
+|-------|-------------------|
+| 1-100 | `t3.small` + SQLite (current setup) |
+| 100-500 | `t3.medium` + SQLite, consider PostgreSQL |
+| 500+ | `t3.large` + PostgreSQL (RDS), separate upload storage (S3) |
+
+To switch to PostgreSQL in production:
+1. Provision an AWS RDS PostgreSQL instance
+2. Update `DATABASE_URL` in `.env` to the RDS connection string
+3. Add RDS security group access from your EC2 instance
+4. Redeploy with `bash deploy.sh --update`
+
+### Troubleshooting
+
+**Site not loading?**
+
+```bash
+# Check if containers are running
+bash deploy.sh --status
+
+# Check logs
+bash deploy.sh --logs
+
+# Check Caddy logs specifically
+docker compose -f docker-compose.prod.yml logs caddy
+```
+
+**HTTPS certificate not working?**
+
+- Make sure your domain DNS points to the EC2 IP
+- Make sure port 80 is open (required for Let's Encrypt HTTP challenge)
+- Make sure port 443 is open
+- Check Caddy logs: `docker compose -f docker-compose.prod.yml logs caddy`
+
+**Can't connect via SSH?**
+
+- Verify your security group allows port 22 from your IP
+- Verify you're using the correct key file: `ssh -i masar-key.pem ubuntu@IP`
+- Check the key file permissions: `chmod 400 masar-key.pem`
+
+**Database errors?**
+
+```bash
+# Reseed the database
+bash deploy.sh --seed
+
+# Full reset (WARNING: deletes all data)
+bash deploy.sh --reset
+```
+
+**Port already in use?**
+
+```bash
+# Check what's using a port
+sudo lsof -i :80
+sudo lsof -i :443
+
+# Stop all Docker containers
+docker compose -f docker-compose.prod.yml down
+```
+
+**Need to restore a backup?**
+
+```bash
+# Stop the web service
+docker compose -f docker-compose.prod.yml stop web
+
+# Copy backup into the Docker volume
+docker compose -f docker-compose.prod.yml cp ./backups/masar_db_TIMESTAMP.sqlite.gz web:/app/db/
+docker compose -f docker-compose.prod.yml exec web gunzip /app/db/masar_db_TIMESTAMP.sqlite.gz
+docker compose -f docker-compose.prod.yml exec web mv /app/db/masar_db_TIMESTAMP.sqlite /app/db/production.db
+
+# Restart
+docker compose -f docker-compose.prod.yml start web
+```
+
+### Cost Estimate (AWS)
+
+| Resource | Monthly Cost | Notes |
+|----------|-------------|-------|
+| EC2 t3.small | ~$15 | 2 vCPU, 2GB RAM |
+| EC2 t3.medium | ~$30 | 2 vCPU, 4GB RAM |
+| EBS 20GB SSD | ~$2 | Storage |
+| Data transfer | ~$0-5 | First 1GB free |
+| **Total** | **~$17-37/month** | No hidden costs |
+
+Free tier eligible: t2.micro (1GB RAM) is free for 12 months, but may not have enough memory.
 
 ---
 
