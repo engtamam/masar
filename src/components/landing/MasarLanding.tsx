@@ -224,6 +224,23 @@ function ScrollToTop() {
 // MAIN LANDING COMPONENT
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function MasarLanding({ onSignUp, onLogin }: MasarLandingProps) {
+  // Fetch real entrepreneur count from database
+  const [entrepreneurCount, setEntrepreneurCount] = useState<number>(0);
+  const MIN_COUNT_TO_SHOW = 10;
+
+  useEffect(() => {
+    fetch('/api/stats')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.success && data?.data?.entrepreneurs !== undefined) {
+          setEntrepreneurCount(data.data.entrepreneurs);
+        }
+      })
+      .catch(() => {
+        // Silently fail — stat simply won't show
+      });
+  }, []);
+
   // Smooth scroll helper
   const scrollTo = useCallback((id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
@@ -341,7 +358,9 @@ function MasarLanding({ onSignUp, onLogin }: MasarLandingProps) {
             animate="visible"
             className="flex flex-wrap justify-center gap-6 sm:gap-12"
           >
-            <StatBadge value={500} suffix="+" label="رائد أعمال" />
+            {entrepreneurCount >= MIN_COUNT_TO_SHOW && (
+              <StatBadge value={entrepreneurCount} suffix="+" label="رائد أعمال" />
+            )}
             <StatBadge value={8} suffix="" label="مراحل متكاملة" />
             <StatBadge value={100} suffix="%" label="مجاني بالكامل" />
           </motion.div>
