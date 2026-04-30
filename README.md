@@ -8,29 +8,32 @@ A free digital incubator platform that prepares entrepreneurs for acceptance int
 
 ## Quick Start
 
-```bash
-# 1. Copy environment template
-cp .env.example .env
-
-# 2. Generate secure random keys (JWT_SECRET + ENCRYPTION_KEY)
-make gen-keys
-
-# 3. Full setup (install deps + push schema + seed)
-make setup
-
-# 4. Run the app
-make dev
-```
-
-Open **http://localhost:3000** — you're live.
-
-Or step by step:
+### Development
 
 ```bash
 cp .env.example .env      # Create .env from template
 make gen-keys              # Generate secure random keys
-make setup                 # install + generate + push schema + seed
-make dev                   # start dev server
+make setup                 # Install bun + deps + push schema + seed
+make dev                   # Start dev server on port 3000
+```
+
+### Production (Docker — recommended)
+
+```bash
+cp .env.production .env    # Create .env from production template
+make gen-keys               # Generate secure random keys
+nano .env                   # Set DOMAIN, ADMIN_PASSWORD
+make deploy                 # Build Docker + start + seed (same as bash deploy.sh)
+```
+
+### Production (Direct — no Docker)
+
+```bash
+cp .env.production .env    # Create .env from production template
+make gen-keys               # Generate secure random keys
+nano .env                   # Set DOMAIN, ADMIN_PASSWORD
+make prod-setup             # Install bun + deps + build + push schema + seed
+make start                  # Start production server
 ```
 
 ---
@@ -89,11 +92,12 @@ ADMIN_NAME=Your Name
 
 ### Database
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DATABASE_URL` | `file:./dev.db` | SQLite database path (dev) |
-| | `file:/app/db/production.db` | SQLite database path (production) |
-| | `postgresql://user:pass@host:5432/masar` | PostgreSQL (for scaling) |
+| Variable | When to Use |
+|----------|-------------|
+| `file:./dev.db` | Development (direct) |
+| `file:./db/production.db` | Production (direct, no Docker) |
+| `file:/app/db/production.db` | Production (inside Docker container) |
+| `postgresql://user:pass@host:5432/masar` | PostgreSQL (for scaling) |
 
 ### Domain & Auth (required for production)
 
@@ -117,7 +121,7 @@ These are stored in the database and can be changed from the **Admin Control Pan
 | `DEFAULT_LANGUAGE` | `ar` | Default platform language |
 | `JWT_EXPIRY` | `7d` | JWT token expiry duration |
 
-### Email Service (optional)
+### Email Service (optional — platform works without it)
 
 Required for email verification and password reset. Without it, email links print to the server console.
 
@@ -125,6 +129,8 @@ Required for email verification and password reset. Without it, email links prin
 |----------|-------------|
 | `RESEND_API_KEY` | API key from [resend.com](https://resend.com) (free tier available) |
 | `EMAIL_FROM` | Sender email (e.g. `noreply@masar.sa`) |
+
+You can add email service later — just set the variables and restart the server.
 
 ---
 
@@ -237,9 +243,9 @@ Each milestone unlocks only after the previous one is approved by a consultant:
 ├── Caddyfile                   # Production reverse proxy (auto HTTPS + WebSocket)
 ├── docker-compose.yml          # Development Docker stack
 ├── docker-compose.prod.yml     # Production Docker stack (Caddy + Web + Chat)
-├── deploy.sh                   # AWS deployment script (install, deploy, update, reset, backup)
+├── deploy.sh                   # Deployment script (build, start, seed, logs, status, backup, update, reset)
 ├── Dockerfile                  # Multi-stage production build
-├── Makefile                    # All commands (dev, db, docker, prod, backup, gen-keys, cleanup)
+├── Makefile                    # All commands (dev, prod, docker, backup, gen-keys, cleanup)
 ├── .env.example                # Environment variable template (development)
 └── .env.production             # Environment variable template (production)
 ```
@@ -252,10 +258,11 @@ Each milestone unlocks only after the previous one is approved by a consultant:
 
 | Command | Description |
 |---------|-------------|
-| `make setup` | First-time setup: install deps + push schema + seed |
+| `make setup` | Dev setup: install bun + deps + push schema + seed |
+| `make prod-setup` | Production setup (no Docker): install bun + deps + build + push schema + seed |
 | `make gen-keys` | Generate secure random JWT_SECRET + ENCRYPTION_KEY and update .env |
+| `make deploy` | Deploy with Docker (Caddy + Web + Chat) — same as `bash deploy.sh` |
 | `make dev` | Start Next.js dev server on port 3000 |
-| `make fresh` | Delete everything and start from scratch |
 
 ### Development
 
@@ -264,6 +271,14 @@ Each milestone unlocks only after the previous one is approved by a consultant:
 | `make dev` | Start Next.js dev server on port 3000 |
 | `make dev-chat` | Start Socket.IO chat service on port 3003 |
 | `make dev-all` | Start both web + chat in parallel |
+
+### Production (Direct — no Docker)
+
+| Command | Description |
+|---------|-------------|
+| `make prod-setup` | First-time production setup (install bun + deps + build + seed) |
+| `make build` | Build for production |
+| `make start` | Start production server |
 
 ### Database
 
@@ -294,13 +309,6 @@ Each milestone unlocks only after the previous one is approved by a consultant:
 | `make lint-fix` | Run ESLint with auto-fix |
 | `make typecheck` | Run TypeScript type checking |
 
-### Build & Run
-
-| Command | Description |
-|---------|-------------|
-| `make build` | Build for production |
-| `make start` | Start production server |
-
 ### Docker (Development)
 
 | Command | Description |
@@ -315,6 +323,7 @@ Each milestone unlocks only after the previous one is approved by a consultant:
 
 | Command | Description |
 |---------|-------------|
+| `make deploy` | Deploy everything (Docker build + start + seed) — same as `bash deploy.sh` |
 | `make prod-up` | Start production stack (Caddy + Web + Chat) |
 | `make prod-down` | Stop production stack |
 | `make prod-logs` | View production logs |
@@ -338,6 +347,7 @@ Each milestone unlocks only after the previous one is approved by a consultant:
 | `make clean` | Remove .next and cache |
 | `make clean-all` | Remove node_modules too |
 | `make nuke` | Delete EVERYTHING including .env (requires typing "DESTROY") |
+| `make fresh` | Delete everything and reinstall from scratch |
 
 ---
 
@@ -422,48 +432,25 @@ This guide walks you through deploying Masar to AWS EC2 from scratch. No prior A
 ### Step 3: Connect via SSH
 
 ```bash
-# Move to your key file (downloaded in Step 2)
 chmod 400 masar-key.pem
-
-# Find your EC2 public IP in AWS Console → EC2 → Instances
 ssh -i masar-key.pem ubuntu@YOUR_EC2_PUBLIC_IP
-
-# If it asks "Are you sure you want to continue connecting?" → type yes
 ```
-
-You're now inside your server!
 
 ### Step 4: Install Docker on the Server
 
 ```bash
-# Update system packages
 sudo apt update && sudo apt upgrade -y
-
-# Install Docker
 curl -fsSL https://get.docker.com | sh
-
-# Add your user to the docker group (so you don't need sudo every time)
 sudo usermod -aG docker ubuntu
-
-# Apply the group change
 newgrp docker
-
-# Verify Docker works
-docker --version
-docker compose version
 ```
 
 ### Step 5: Upload the Project to the Server
 
 **Option A: Clone from Git (recommended)**
 
-If your code is on GitHub/GitLab:
-
 ```bash
-# Install git (usually pre-installed on Ubuntu)
 sudo apt install -y git
-
-# Clone your repo
 git clone https://github.com/YOUR_USERNAME/masar.git
 cd masar
 ```
@@ -473,10 +460,7 @@ cd masar
 From your **local machine** (not the server):
 
 ```bash
-# Upload the entire project folder
 scp -i masar-key.pem -r /path/to/masar ubuntu@YOUR_EC2_PUBLIC_IP:/home/ubuntu/masar
-
-# Then SSH back in
 ssh -i masar-key.pem ubuntu@YOUR_EC2_PUBLIC_IP
 cd masar
 ```
@@ -484,34 +468,34 @@ cd masar
 ### Step 6: Configure Environment Variables
 
 ```bash
-# Copy the production template
 cp .env.production .env
-
-# Generate secure random keys automatically
 make gen-keys
-
-# Edit with your values
 nano .env
 ```
 
 **You MUST change these values:**
 
 ```env
-# Your domain name (must point to your EC2 IP — see Step 7)
 DOMAIN=masar.yourdomain.com
-
-# Admin account (this is the ONLY account created automatically)
 ADMIN_EMAIL=admin@yourdomain.com
 ADMIN_PASSWORD=YourVeryStrongPassword123!
 ADMIN_NAME=مدير المنصة
-
-# Base URL for email links
 NEXTAUTH_URL=https://masar.yourdomain.com
 ```
 
-`make gen-keys` already generated secure `JWT_SECRET` and `ENCRYPTION_KEY` for you. No manual generation needed.
+`make gen-keys` already generated secure `JWT_SECRET` and `ENCRYPTION_KEY` for you.
 
-**Optional: Email service** (for email verification and password reset):
+**Important for Docker deployment:** Change `DATABASE_URL` to the Docker path:
+
+```env
+# For Docker deployment:
+DATABASE_URL=file:/app/db/production.db
+
+# For direct deployment (no Docker):
+DATABASE_URL=file:./db/production.db
+```
+
+**Optional: Email service** (can be added later — platform works without it):
 
 ```env
 RESEND_API_KEY=re_your_key_here
@@ -531,30 +515,14 @@ Without email service, verification/reset links print to the server console inst
 
 3. Wait 5-30 minutes for DNS propagation
 
-4. Verify it worked:
-
-```bash
-# Run from your local machine
-ping masar.yourdomain.com
-# Should resolve to your EC2 IP
-```
-
-**Using AWS Route 53 (optional but recommended):**
-
-1. AWS Console → Route 53 → Hosted Zones → Create Hosted Zone
-2. Enter your domain name
-3. Go to your domain registrar and change nameservers to the AWS ones
-4. Create an A Record pointing to your EC2 IP
-5. Enable the www redirect (optional)
+4. Verify: `ping masar.yourdomain.com`
 
 ### Step 8: Deploy!
 
-```bash
-# Make the deploy script executable
-chmod +x deploy.sh
+**Option A: With Docker (recommended)**
 
-# Deploy everything (Docker build + start + seed database)
-bash deploy.sh
+```bash
+make deploy
 ```
 
 This will:
@@ -564,6 +532,13 @@ This will:
 4. Wait for health checks to pass
 5. Seed the database with admin account + specialties + milestones
 6. Print your site URL
+
+**Option B: Direct (no Docker)**
+
+```bash
+make prod-setup     # Install bun + deps + build + push schema + seed
+make start          # Start production server
+```
 
 Visit **https://masar.yourdomain.com** — your platform is live!
 
@@ -583,102 +558,58 @@ Visit **https://masar.yourdomain.com** — your platform is live!
 ### Day-to-Day Management
 
 ```bash
-# SSH into the server
 ssh -i masar-key.pem ubuntu@YOUR_EC2_PUBLIC_IP
 cd masar
 
-# View live logs
-bash deploy.sh --logs
+# Docker deployment
+make prod-logs                  # View logs
+make prod-status                # Check status
+make prod-backup                # Backup DB + files
+make prod-restore DB=backups/file.sqlite  # Restore DB
+make prod-update                # Update + redeploy
+make prod-down                  # Stop all services
+make prod-up                    # Start all services
 
-# Check service status
-bash deploy.sh --status
-
-# Backup database + files
-make backup
-
-# List backups
-make backup-list
-
-# Restore from backup
-make restore DB=backups/masar_db_TIMESTAMP.sqlite
-
-# Update code and redeploy (after git pull)
-bash deploy.sh --update
-
-# Wipe everything and start fresh (DANGEROUS)
-bash deploy.sh --reset
-
-# Reseed database
-bash deploy.sh --seed
-```
-
-Or use Makefile commands:
-
-```bash
-make prod-logs      # View logs
-make prod-status    # Check status
-make prod-backup    # Backup DB + files
-make prod-restore DB=backups/file.sqlite  # Restore production DB
-make prod-update    # Update + redeploy
-make prod-reset     # Full reset
-make prod-seed      # Reseed database
-make prod-down      # Stop all services
-make prod-up        # Start all services
+# Direct deployment
+make backup                     # Backup database + files
+make backup-list                # List available backups
+make restore DB=backups/file.sqlite  # Restore from backup
 ```
 
 ### Updating the Platform
 
-When you have code changes to deploy:
+**Docker deployment:**
 
 ```bash
-# SSH into the server
-ssh -i masar-key.pem ubuntu@YOUR_EC2_PUBLIC_IP
-cd masar
-
-# Pull latest code (if using git)
 git pull origin main
-
-# Rebuild and restart (zero downtime)
-bash deploy.sh --update
+make prod-update
 ```
 
-Or manually:
+**Direct deployment:**
 
 ```bash
-docker compose -f docker-compose.prod.yml build
-docker compose -f docker-compose.prod.yml up -d --remove-orphans
-docker image prune -f
+git pull origin main
+make prod-setup
+make start
 ```
 
 ### Setting Up Automated Backups (Cron)
 
 ```bash
-# Edit crontab
 crontab -e
 
 # Add daily backup at 3 AM
 0 3 * * * cd /home/ubuntu/masar && make backup >> /home/ubuntu/masar/backups/cron.log 2>&1
 ```
 
-Backups are saved to `./backups/`.
-
 ### Monitoring the Server
 
 ```bash
-# Check disk space
-df -h
-
-# Check memory usage
-free -m
-
-# Check Docker container resource usage
-docker stats --no-stream
-
-# Check if containers are running
-docker compose -f docker-compose.prod.yml ps
-
-# Check application health
-curl -s http://localhost:3000/api/health | python3 -m json.tool
+df -h                          # Check disk space
+free -m                        # Check memory usage
+docker stats --no-stream       # Check Docker resource usage
+make prod-status               # Check container status
+curl -s http://localhost:3000/api/health | python3 -m json.tool  # Health check
 ```
 
 ### Scaling Considerations
@@ -693,21 +624,15 @@ To switch to PostgreSQL in production:
 1. Provision an AWS RDS PostgreSQL instance
 2. Update `DATABASE_URL` in `.env` to the RDS connection string
 3. Add RDS security group access from your EC2 instance
-4. Redeploy with `bash deploy.sh --update`
+4. Redeploy with `make prod-update`
 
 ### Troubleshooting
 
 **Site not loading?**
 
 ```bash
-# Check if containers are running
-bash deploy.sh --status
-
-# Check logs
-bash deploy.sh --logs
-
-# Check Caddy logs specifically
-docker compose -f docker-compose.prod.yml logs caddy
+make prod-status    # Check if containers are running
+make prod-logs      # Check logs
 ```
 
 **HTTPS certificate not working?**
@@ -717,44 +642,27 @@ docker compose -f docker-compose.prod.yml logs caddy
 - Make sure port 443 is open
 - Check Caddy logs: `docker compose -f docker-compose.prod.yml logs caddy`
 
-**Can't connect via SSH?**
-
-- Verify your security group allows port 22 from your IP
-- Verify you're using the correct key file: `ssh -i masar-key.pem ubuntu@IP`
-- Check the key file permissions: `chmod 400 masar-key.pem`
-
 **Database errors?**
 
 ```bash
-# Reseed the database
-bash deploy.sh --seed
-
-# Full reset (WARNING: deletes all data)
-bash deploy.sh --reset
+make prod-seed      # Reseed the database
+make prod-reset     # Full reset (WARNING: deletes all data)
 ```
 
 **Need to restore a backup?**
 
 ```bash
-# List available backups
 make backup-list
-
-# Restore from a specific backup
 make restore DB=backups/masar_db_TIMESTAMP.sqlite
-
-# Restore with uploaded files too
 make restore DB=backups/masar_db_TIMESTAMP.sqlite UPLOAD=backups/masar_upload_TIMESTAMP.tar.gz
 ```
 
 **Port already in use?**
 
 ```bash
-# Check what's using a port
 sudo lsof -i :80
 sudo lsof -i :443
-
-# Stop all Docker containers
-docker compose -f docker-compose.prod.yml down
+make prod-down
 ```
 
 ### Cost Estimate (AWS)
