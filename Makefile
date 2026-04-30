@@ -7,7 +7,7 @@
 	db-generate db-setup lint clean docker-up docker-down docker-build \
 	docker-logs docker-restart prod-up prod-down prod-logs prod-status \
 	prod-reset prod-update prod-backup prod-restore prod-seed setup fresh nuke \
-	backup restore backup-list gen-keys
+	backup restore backup-list gen-keys deploy
 
 # Default target
 help: ## Show this help message
@@ -68,6 +68,9 @@ nuke: ## Nuclear option: delete EVERYTHING including .env
 	rm -rf .next node_modules db/ .env
 	rm -rf mini-services/chat-service/node_modules
 	@echo "☢️  Everything destroyed. Run 'cp .env.example .env' then 'make setup'."
+
+deploy: ## Deploy with Docker (Caddy + Web + Chat) — same as bash deploy.sh
+	@bash deploy.sh
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # DEVELOPMENT
