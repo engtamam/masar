@@ -12,15 +12,15 @@
 # Default target
 help: ## Show this help message
 	@echo '╔══════════════════════════════════════════════════════════╗'
-	@echo '║            Masar Platform - Available Commands          ║'
+	@echo '║	    Masar Platform - Available Commands	  ║'
 	@echo '╠══════════════════════════════════════════════════════════╣'
-	@echo '║                                                         ║'
-	@echo '║  Quick Start:                                           ║'
+	@echo '║							 ║'
+	@echo '║  Quick Start:					   ║'
 	@echo '║    make setup     First-time setup (install + db + seed)║'
-	@echo '║    make dev       Start development server              ║'
+	@echo '║    make dev       Start development server	      ║'
 	@echo '║    make fresh     Delete everything and start fresh     ║'
-	@echo '║                                                         ║'
-	@echo '║  All commands:                                          ║'
+	@echo '║							 ║'
+	@echo '║  All commands:					  ║'
 	@echo '╚══════════════════════════════════════════════════════════╝'
 	@echo ''
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -33,7 +33,7 @@ setup: ## First-time dev setup: install bun + deps + push schema + seed data
 
 prod-setup: ## First-time production setup (direct, no Docker): install bun + deps + build + push schema + seed
 	@echo "🚀 Setting up Masar Platform for production..."
-	@which unzip > /dev/null 2>&1 || { echo "📦 Installing system dependencies..."; sudo apt update -qq && sudo apt install -y unzip curl; }\n	@which bun > /dev/null 2>&1 || { echo "📦 Installing Bun..."; curl -fsSL https://bun.sh/install | bash; . ~/.bashrc; }
+	@which unzip > /dev/null 2>&1 || { echo "📦 Installing system dependencies..."; sudo apt update -qq && sudo apt install -y unzip curl; }\n       @which bun > /dev/null 2>&1 || { echo "📦 Installing Bun..."; curl -fsSL https://bun.sh/install | bash; . ~/.bashrc; }
 	@mkdir -p db upload/templates
 	bun install
 	bun run db:generate
@@ -55,19 +55,42 @@ fresh: ## Delete everything, reinstall, and start fresh
 	rm -rf node_modules
 	rm -rf db/custom.db
 	rm -rf db/production.db
-	@which unzip > /dev/null 2>&1 || { echo "📦 Installing system dependencies..."; sudo apt update -qq && sudo apt install -y unzip curl; }\n	@which bun > /dev/null 2>&1 || { echo "📦 Installing Bun..."; curl -fsSL https://bun.sh/install | bash; . ~/.bashrc; }
+	@which unzip > /dev/null 2>&1 || { echo "📦 Installing system dependencies..."; sudo apt update -qq && sudo apt install -y unzip curl; }\n       @which bun > /dev/null 2>&1 || { echo "📦 Installing Bun..."; curl -fsSL https://bun.sh/install | bash; . ~/.bashrc; }
 	bun install
 	bun run db:generate
 	bun run db:push
 	bun run src/lib/seed.ts
 	@echo "✅ Fresh setup complete! Run 'make dev' to start."
 
-nuke: ## Nuclear option: delete EVERYTHING including .env
-	@echo "☢️  This will delete EVERYTHING including .env!"
+nuke: ## Nuclear option: delete EVERYTHING (files + Docker containers/volumes/images + .env)
+	@echo '╔══════════════════════════════════════════════════════════╗'
+	@echo '║  ☢️  WARNING: THIS WILL DESTROY EVERYTHING!	     ║'
+	@echo '║  - All local files (.next, node_modules, db, uploads)   ║'
+	@echo '║  - All .env files				       ║'
+	@echo '║  - All Docker containers, volumes, images, networks     ║'
+	@echo '║  - All backups					  ║'
+	@echo '║							 ║'
+	@echo '║  There is NO undo. You will start from ZERO.	    ║'
+	@echo '╚══════════════════════════════════════════════════════════╝'
 	@read -p "Type 'DESTROY' to confirm: " confirm && [ "$$confirm" = "DESTROY" ] || exit 1
-	rm -rf .next node_modules db/ .env
+	@echo ''
+	@echo '🛑 Stopping and removing Docker containers...'
+	docker compose -f docker-compose.prod.yml down -v --remove-orphans 2>/dev/null || true
+	docker compose down -v --remove-orphans 2>/dev/null || true
+	@echo '🛑 Removing Docker images...'
+	docker rmi $$(docker images -q --filter reference='masar*') 2>/dev/null || true
+	@echo '🛑 Pruning unused Docker resources...'
+	docker system prune -af --volumes 2>/dev/null || true
+	@echo '🛑 Deleting all local files...'
+	rm -rf .next node_modules db/ upload/ backups/
 	rm -rf mini-services/chat-service/node_modules
-	@echo "☢️  Everything destroyed. Run 'cp .env.example .env' then 'make setup'."
+	rm -f .env .env.local
+	@echo ''
+	@echo '☢️  Everything destroyed. Starting from scratch:'
+	@echo '   1. cp .env.example .env'
+	@echo '   2. make gen-keys'
+	@echo '   3. make setup   (for dev)  OR  make prod-setup  (for production)'
+	@echo '   4. make deploy  (for Docker production)'
 
 deploy: ## Deploy with Docker (Caddy + Web + Chat) — same as bash deploy.sh
 	@bash deploy.sh
@@ -211,20 +234,20 @@ restore: ## Restore from a backup file (usage: make restore DB=file.sqlite UPLOA
 	cp "$$DB" db/custom.db
 	@echo "📥 Restoring uploaded files (if specified)..."
 	@if [ -n "$$UPLOAD" ] && [ -f "$$UPLOAD" ]; then \
-	        rm -rf upload/* 2>/dev/null; \
-	        tar -xzf "$$UPLOAD" -C upload/; \
-	        echo "  ✅ Upload files restored"; \
+		rm -rf upload/* 2>/dev/null; \
+		tar -xzf "$$UPLOAD" -C upload/; \
+		echo "  ✅ Upload files restored"; \
 	fi
 	@echo "📥 Restoring templates (if specified)..."
 	@if [ -n "$$TEMPLATES" ] && [ -f "$$TEMPLATES" ]; then \
-	        mkdir -p upload/templates; \
-	        tar -xzf "$$TEMPLATES" -C upload/templates/; \
-	        echo "  ✅ Templates restored"; \
+		mkdir -p upload/templates; \
+		tar -xzf "$$TEMPLATES" -C upload/templates/; \
+		echo "  ✅ Templates restored"; \
 	fi
 	@echo "📥 Restoring env files (if specified)..."
 	@if [ -n "$$ENV" ] && [ -f "$$ENV" ]; then \
-	        cp "$$ENV" .env; \
-	        echo "  ✅ .env restored"; \
+		cp "$$ENV" .env; \
+		echo "  ✅ .env restored"; \
 	fi
 	bun run db:generate
 	@echo "✅ Restore complete! Run 'make dev' to start."

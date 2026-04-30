@@ -346,8 +346,8 @@ Each milestone unlocks only after the previous one is approved by a consultant:
 |---------|-------------|
 | `make clean` | Remove .next and cache |
 | `make clean-all` | Remove node_modules too |
-| `make nuke` | Delete EVERYTHING including .env (requires typing "DESTROY") |
-| `make fresh` | Delete everything and reinstall from scratch |
+| `make fresh` | Delete data and reinstall from scratch (requires typing "yes") |
+| `make nuke` | Delete EVERYTHING — local files + Docker containers/volumes/images + .env + backups (requires typing "DESTROY") |
 
 ---
 
