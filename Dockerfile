@@ -32,6 +32,9 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
+# Copy full node_modules (needed for seed command: bcryptjs, prisma, etc.)
+COPY --from=builder /app/node_modules ./node_modules
+
 # Copy prisma schema and lib files (needed for seed command inside container)
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/src/lib ./src/lib
