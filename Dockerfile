@@ -14,18 +14,17 @@ COPY . .
 RUN bun run db:generate
 RUN bun run build
 
-# Stage 3: Production
-FROM oven/bun:1 AS runner
+# Stage 3: Production (use Node.js for runtime — optimized for Next.js standalone)
+FROM node:20-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Install curl for healthcheck (Debian-based image)
+# Install curl for healthcheck
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user (compatible with all distros)
-RUN groupadd -g 1001 nodejs || true
-RUN useradd -u 1001 -g nodejs -s /bin/sh nextjs || true
+# Create non-root user
+RUN groupadd -g 1001 nodejs && useradd -u 1001 -g nodejs -s /bin/sh nextjs
 
 # Copy standalone output
 COPY --from=builder /app/public ./public
@@ -49,4 +48,4 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-CMD ["bun", "server.js"]
+CMD ["node", "server.js"]
