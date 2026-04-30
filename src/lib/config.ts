@@ -1,7 +1,7 @@
 // Platform Configuration System
 // Loads from PlatformConfig table with fallback to env vars and defaults
 
-import { db } from '@/lib/db'
+import { db } from './db'
 
 // Default configuration values
 const DEFAULTS: Record<string, { value: string; type: 'STRING' | 'NUMBER' | 'BOOLEAN' | 'JSON'; description: string }> = {
