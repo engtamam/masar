@@ -529,7 +529,7 @@ export const adminApi = {
    * Soft-delete a specialty (sets isActive = false)
    */
   deleteSpecialty: (id: string) =>
-    request<{ message: string }>(`/admin/specialties?id=${id}`, {
+    request<{ message: string }>(`/admin/specialties?id=${encodeURIComponent(id)}`, {
       method: 'DELETE',
     }),
 
@@ -581,7 +581,7 @@ export const adminApi = {
    * Soft-delete a milestone default (sets isActive = false)
    */
   deleteMilestoneDefault: (id: string) =>
-    request<{ message: string }>(`/admin/milestones?id=${id}`, {
+    request<{ message: string }>(`/admin/milestones?id=${encodeURIComponent(id)}`, {
       method: 'DELETE',
     }),
 

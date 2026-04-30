@@ -6,7 +6,7 @@
 // The system automatically routes each role to their dedicated dashboard
 
 import { useState, type FormEvent } from 'react';
-import { Compass, Mail, Lock, User, Briefcase, Eye, EyeOff, Loader2, Shield, Users, CheckCircle, KeyRound, ArrowRight, FileText } from 'lucide-react';
+import { Compass, Mail, Lock, User, Briefcase, Eye, EyeOff, Loader2, Shield, Users, CheckCircle, KeyRound, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useAppStore, getDefaultView } from '@/lib/store';
@@ -536,22 +536,6 @@ export function RegisterPage() {
             </Button>
           </form>
 
-          {/* Info about consultant/admin accounts */}
-          <div className="mt-4 p-3 bg-blue-50/80 rounded-lg border border-blue-100">
-            <p className="text-xs text-blue-800">
-              💡 <strong>ملاحظة:</strong> حسابات المستشارين والإدارة يتم إنشاؤها من قبل مدير النظام. إذا كنت مستشاراً، تواصل مع الإدارة للحصول على بيانات الدخول.
-            </p>
-          </div>
-
-          {/* Legal disclaimer summary */}
-          <div className="mt-3 p-3 bg-amber-50/80 rounded-lg border border-amber-100">
-            <div className="flex items-start gap-2">
-              <FileText className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-              <p className="text-xs text-amber-800 leading-relaxed">
-                <strong>تنبيه قانوني:</strong> المنصة والمستشارون يقدّمون إرشاداً فقط ولا يتحملون أي مسؤولية عن نتائج مشروعك. أنت المسؤول الوحيد عن قرار مشاركة فكرتك ومعلوماتك، وتتحمّل كامل المخاطر المتعلقة بذلك.
-              </p>
-            </div>
-          </div>
         </CardContent>
 
         <CardFooter className="justify-center pb-6">
