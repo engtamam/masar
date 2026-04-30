@@ -732,3 +732,26 @@ Stage Summary:
 - Password reset: Secure token-based flow with 1hr expiry, email enumeration protection
 - Health monitoring: /api/health endpoint with DB check, metrics, uptime, memory info
 - All features compile and build successfully
+
+---
+Task ID: clean-seed-and-configurable-admin
+Agent: main
+Task: Remove test accounts from seed, make admin credentials configurable via .env
+
+Work Log:
+- Rewrote seed.ts: removed all sample accounts (consultants, entrepreneurs, chat rooms, welcome messages)
+- Added environment variable support: ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_NAME
+- Admin credentials now read from .env with defaults (admin@masar.sa / admin123)
+- Upsert on admin now updates password/name if .env values change
+- Clean output with clear box showing admin credentials and where users register
+- Deleted old test accounts from database: consultant@platform.sa, consultant2@platform.sa, entrepreneur@platform.sa
+- Deleted old admin@platform.sa account, keeping only admin@masar.sa
+- Updated .env, .env.example, .env.production with ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_NAME variables
+- Added RESEND_API_KEY and EMAIL_FROM to .env.example and .env.production
+
+Stage Summary:
+- Only 1 account created on setup: the admin (customizable via .env)
+- Entrepreneurs register themselves via the landing page "ابدأ رحلتك" button
+- Consultants are created by admin from the admin panel
+- Admin credentials are fully configurable through environment variables
+- Database now has only the admin@masar.sa account
