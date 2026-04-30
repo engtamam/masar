@@ -32,6 +32,9 @@ import {
   ToggleLeft,
   Save,
   RefreshCw,
+  FileDown,
+  Download,
+  File,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -332,6 +335,7 @@ const ADMIN_NAV_ITEMS: NavItem[] = [
   { label: 'إدارة المستخدمين', icon: Users, view: 'admin-users' },
   { label: 'التخصصات', icon: Award, view: 'admin-specialties' },
   { label: 'المراحل', icon: Flag, view: 'admin-milestones' },
+  { label: 'القوالب', icon: FileDown, view: 'admin-templates' },
   { label: 'الإعدادات', icon: Settings, view: 'admin-configs' },
   { label: 'الحصص', icon: Gauge, view: 'admin-quotas' },
   { label: 'التقارير', icon: BarChart3, view: 'admin-reports' },
@@ -426,6 +430,8 @@ export function AdminMainView() {
       return <AdminReports />;
     case 'admin-chat':
       return <AdminChatMonitor />;
+    case 'admin-templates':
+      return <AdminTemplates />;
     default:
       return <AdminOverview />;
   }
@@ -2790,6 +2796,514 @@ export function AdminChatMonitor() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ========== 11. AdminTemplates ==========
+
+interface TemplateItem {
+  id: string;
+  nameAr: string;
+  nameEn: string;
+  descriptionAr?: string;
+  descriptionEn?: string;
+  category?: string;
+  fileName: string;
+  filePath: string;
+  fileType: string;
+  fileSize: number;
+  isActive: boolean;
+  sortOrder: number;
+  downloadCount: number;
+  specialty?: { id: string; nameAr: string; nameEn: string } | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+const TEMPLATE_CATEGORIES = [
+  { value: 'business-plan', label: 'خطة عمل' },
+  { value: 'financial', label: 'مالي' },
+  { value: 'legal', label: 'قانوني' },
+  { value: 'marketing', label: 'تسويقي' },
+  { value: 'pitch-deck', label: 'عرض تقديمي' },
+  { value: 'other', label: 'أخرى' },
+];
+
+function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function getFileIcon(mimeType: string): string {
+  if (mimeType.includes('pdf')) return '📄';
+  if (mimeType.includes('word') || mimeType.includes('document')) return '📝';
+  if (mimeType.includes('sheet') || mimeType.includes('excel')) return '📊';
+  if (mimeType.includes('presentation') || mimeType.includes('powerpoint')) return '📽️';
+  if (mimeType.includes('image')) return '🖼️';
+  if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('7z') || mimeType.includes('compressed')) return '📦';
+  return '📎';
+}
+
+export function AdminTemplates() {
+  const [templates, setTemplates] = useState<TemplateItem[]>([]);
+  const [specialties, setSpecialties] = useState<Specialty[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editItem, setEditItem] = useState<TemplateItem | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // Form state
+  const [formNameAr, setFormNameAr] = useState('');
+  const [formNameEn, setFormNameEn] = useState('');
+  const [formDescAr, setFormDescAr] = useState('');
+  const [formDescEn, setFormDescEn] = useState('');
+  const [formCategory, setFormCategory] = useState('');
+  const [formSpecialtyId, setFormSpecialtyId] = useState('');
+  const [formFile, setFormFile] = useState<File | null>(null);
+
+  const loadTemplates = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await adminApi.getTemplates(true);
+      if (res.success && res.data) {
+        setTemplates(res.data as TemplateItem[]);
+      }
+    } catch {
+      // Silently handle
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadSpecialties = useCallback(async () => {
+    try {
+      const res = await adminApi.getSpecialties(true);
+      if (res.success && res.data) {
+        setSpecialties(res.data as Specialty[]);
+      }
+    } catch {
+      // Silently handle
+    }
+  }, []);
+
+  useEffect(() => {
+    loadTemplates();
+    loadSpecialties();
+  }, [loadTemplates, loadSpecialties]);
+
+  const openAddDialog = () => {
+    setEditItem(null);
+    setFormNameAr('');
+    setFormNameEn('');
+    setFormDescAr('');
+    setFormDescEn('');
+    setFormCategory('');
+    setFormSpecialtyId('');
+    setFormFile(null);
+    setDialogOpen(true);
+  };
+
+  const openEditDialog = (item: TemplateItem) => {
+    setEditItem(item);
+    setFormNameAr(item.nameAr);
+    setFormNameEn(item.nameEn);
+    setFormDescAr(item.descriptionAr || '');
+    setFormDescEn(item.descriptionEn || '');
+    setFormCategory(item.category || '');
+    setFormSpecialtyId(item.specialty?.id || '');
+    setFormFile(null);
+    setDialogOpen(true);
+  };
+
+  const handleSave = async () => {
+    if (!formNameAr || !formNameEn) {
+      toast.error('يرجى ملء حقول الاسم المطلوبة');
+      return;
+    }
+    if (!editItem && !formFile) {
+      toast.error('يرجى اختيار ملف للرفع');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      if (editItem) {
+        // Update metadata only
+        const res = await adminApi.updateTemplate({
+          id: editItem.id,
+          nameAr: formNameAr,
+          nameEn: formNameEn,
+          descriptionAr: formDescAr || undefined,
+          descriptionEn: formDescEn || undefined,
+          category: formCategory || undefined,
+          specialtyId: formSpecialtyId || null,
+        });
+        if (res.success) {
+          toast.success('تم تحديث القالب');
+          setDialogOpen(false);
+          await loadTemplates();
+        } else {
+          toast.error(res.error || 'فشل في تحديث القالب');
+        }
+      } else {
+        // Create with file upload
+        const formData = new FormData();
+        formData.append('file', formFile!);
+        formData.append('nameAr', formNameAr);
+        formData.append('nameEn', formNameEn);
+        if (formDescAr) formData.append('descriptionAr', formDescAr);
+        if (formDescEn) formData.append('descriptionEn', formDescEn);
+        if (formCategory) formData.append('category', formCategory);
+        if (formSpecialtyId) formData.append('specialtyId', formSpecialtyId);
+
+        const res = await adminApi.createTemplate(formData);
+        if (res.success) {
+          toast.success('تم إضافة القالب بنجاح');
+          setDialogOpen(false);
+          await loadTemplates();
+        } else {
+          toast.error(res.error || 'فشل في إضافة القالب');
+        }
+      }
+    } catch {
+      toast.error('حدث خطأ غير متوقع');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await adminApi.deleteTemplate(id);
+      if (res.success) {
+        toast.success('تم تعطيل القالب');
+        await loadTemplates();
+      } else {
+        toast.error(res.error || 'فشل في تعطيل القالب');
+      }
+    } catch {
+      toast.error('حدث خطأ غير متوقع');
+    }
+  };
+
+  const handleRestore = async (item: TemplateItem) => {
+    try {
+      const res = await adminApi.updateTemplate({
+        id: item.id,
+        isActive: true,
+      });
+      if (res.success) {
+        toast.success('تم تفعيل القالب');
+        await loadTemplates();
+      } else {
+        toast.error(res.error || 'فشل في تفعيل القالب');
+      }
+    } catch {
+      toast.error('حدث خطأ غير متوقع');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="p-6 space-y-4">
+        <Skeleton className="h-10 w-48" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-40 rounded-xl" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 sm:p-6 space-y-4">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <h2 className="text-xl font-bold text-gray-900">إدارة القوالب</h2>
+        <Button onClick={openAddDialog} className="bg-emerald-600 hover:bg-emerald-700">
+          <Plus className="w-4 h-4 ml-2" />
+          إضافة قالب جديد
+        </Button>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Card className="bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-100">
+          <CardContent className="p-3 text-center">
+            <p className="text-2xl font-bold text-emerald-700">{templates.length}</p>
+            <p className="text-xs text-emerald-600">إجمالي القوالب</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100">
+          <CardContent className="p-3 text-center">
+            <p className="text-2xl font-bold text-blue-700">{templates.filter(t => t.isActive).length}</p>
+            <p className="text-xs text-blue-600">قوالب نشطة</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-purple-50 to-fuchsia-50 border-purple-100">
+          <CardContent className="p-3 text-center">
+            <p className="text-2xl font-bold text-purple-700">
+              {templates.reduce((sum, t) => sum + t.downloadCount, 0)}
+            </p>
+            <p className="text-xs text-purple-600">إجمالي التحميلات</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-amber-50 to-orange-50 border-amber-100">
+          <CardContent className="p-3 text-center">
+            <p className="text-2xl font-bold text-amber-700">
+              {new Set(templates.map(t => t.category).filter(Boolean)).size}
+            </p>
+            <p className="text-xs text-amber-600">تصنيفات</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Templates Grid */}
+      {templates.length === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="py-12 text-center">
+            <FileDown className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500 font-medium">لا توجد قوالب بعد</p>
+            <p className="text-gray-400 text-sm mt-1">أضف قالبًا جديدًا ليتمكن المستخدمون من تحميله</p>
+            <Button onClick={openAddDialog} variant="outline" className="mt-4">
+              <Plus className="w-4 h-4 ml-2" />
+              إضافة أول قالب
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {templates.map((tmpl) => {
+            const cat = TEMPLATE_CATEGORIES.find(c => c.value === tmpl.category);
+            return (
+              <Card
+                key={tmpl.id}
+                className={`border transition-all hover:shadow-md ${
+                  !tmpl.isActive ? 'opacity-60 bg-gray-50 border-gray-200' : 'border-emerald-100 hover:border-emerald-200'
+                }`}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">{getFileIcon(tmpl.fileType)}</span>
+                      <div>
+                        <h3 className="font-semibold text-sm text-gray-900 line-clamp-1">{tmpl.nameAr}</h3>
+                        <p className="text-xs text-gray-400">{tmpl.nameEn}</p>
+                      </div>
+                    </div>
+                    <Badge
+                      className={`text-[10px] px-2 py-0.5 ${
+                        tmpl.isActive
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : 'bg-red-100 text-red-700'
+                      }`}
+                    >
+                      {tmpl.isActive ? 'نشط' : 'معطل'}
+                    </Badge>
+                  </div>
+
+                  {tmpl.descriptionAr && (
+                    <p className="text-xs text-muted-foreground mb-2 line-clamp-2">{tmpl.descriptionAr}</p>
+                  )}
+
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2 flex-wrap">
+                    {cat && (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                        {cat.label}
+                      </Badge>
+                    )}
+                    <span>{formatFileSize(tmpl.fileSize)}</span>
+                    <span>·</span>
+                    <span>{tmpl.downloadCount} تحميل</span>
+                  </div>
+
+                  {tmpl.specialty && (
+                    <div className="text-xs text-muted-foreground mb-3">
+                      التخصص: {tmpl.specialty.nameAr}
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => openEditDialog(tmpl)}
+                    >
+                      <Pencil className="w-3 h-3" />
+                      <span className="mr-1">تعديل</span>
+                    </Button>
+                    {tmpl.isActive ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs text-red-600 border-red-200 hover:bg-red-50"
+                        onClick={() => handleDelete(tmpl.id)}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span className="mr-1">تعطيل</span>
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+                        onClick={() => handleRestore(tmpl)}
+                      >
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span className="mr-1">تفعيل</span>
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Add/Edit Template Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent dir="rtl" className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editItem ? 'تعديل القالب' : 'إضافة قالب جديد'}</DialogTitle>
+            <DialogDescription>
+              {editItem ? 'تعديل بيانات القالب' : 'أضف ملف قالب جديد ليتمكن المستخدمون من تحميله'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* File Upload (only for new) */}
+            {!editItem && (
+              <div>
+                <Label className="text-sm font-medium">ملف القالب *</Label>
+                <div className="mt-1 flex items-center gap-2">
+                  <Input
+                    type="file"
+                    onChange={(e) => setFormFile(e.target.files?.[0] || null)}
+                    className="text-sm"
+                    accept="*"
+                  />
+                </div>
+                {formFile && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {formFile.name} ({formatFileSize(formFile.size)})
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Name AR */}
+            <div>
+              <Label className="text-sm font-medium">الاسم بالعربية *</Label>
+              <Input
+                value={formNameAr}
+                onChange={(e) => setFormNameAr(e.target.value)}
+                placeholder="مثال: قالب خطة العمل"
+                className="mt-1"
+              />
+            </div>
+
+            {/* Name EN */}
+            <div>
+              <Label className="text-sm font-medium">الاسم بالإنجليزية *</Label>
+              <Input
+                value={formNameEn}
+                onChange={(e) => setFormNameEn(e.target.value)}
+                placeholder="e.g. Business Plan Template"
+                className="mt-1"
+                dir="ltr"
+              />
+            </div>
+
+            {/* Description AR */}
+            <div>
+              <Label className="text-sm font-medium">الوصف بالعربية</Label>
+              <Textarea
+                value={formDescAr}
+                onChange={(e) => setFormDescAr(e.target.value)}
+                placeholder="وصف مختصر للقالب..."
+                className="mt-1"
+                rows={2}
+              />
+            </div>
+
+            {/* Description EN */}
+            <div>
+              <Label className="text-sm font-medium">الوصف بالإنجليزية</Label>
+              <Textarea
+                value={formDescEn}
+                onChange={(e) => setFormDescEn(e.target.value)}
+                placeholder="Brief template description..."
+                className="mt-1"
+                rows={2}
+                dir="ltr"
+              />
+            </div>
+
+            {/* Category */}
+            <div>
+              <Label className="text-sm font-medium">التصنيف</Label>
+              <Select value={formCategory} onValueChange={setFormCategory}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="اختر التصنيف" />
+                </SelectTrigger>
+                <SelectContent>
+                  {TEMPLATE_CATEGORIES.map((cat) => (
+                    <SelectItem key={cat.value} value={cat.value}>
+                      {cat.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Specialty */}
+            <div>
+              <Label className="text-sm font-medium">التخصص (اختياري)</Label>
+              <Select value={formSpecialtyId} onValueChange={setFormSpecialtyId}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="اختر التخصص" />
+                </SelectTrigger>
+                <SelectContent>
+                  {specialties.map((spec) => (
+                    <SelectItem key={spec.id} value={spec.id}>
+                      {spec.nameAr}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
+              إلغاء
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+              className="bg-emerald-600 hover:bg-emerald-700"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin ml-2" />
+                  جاري الحفظ...
+                </>
+              ) : editItem ? (
+                'حفظ التعديلات'
+              ) : (
+                'إضافة القالب'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

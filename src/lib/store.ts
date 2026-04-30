@@ -18,9 +18,11 @@ export type AppView =
   | 'entrepreneur-bookings'
   | 'entrepreneur-chat'
   | 'entrepreneur-files'
+  | 'entrepreneur-templates'
   | 'consultant-dashboard'
   | 'consultant-appointments'
   | 'consultant-entrepreneurs'
+  | 'consultant-templates'
   | 'consultant-chat'
   | 'admin-dashboard'
   | 'admin-users'
@@ -29,7 +31,8 @@ export type AppView =
   | 'admin-configs'
   | 'admin-quotas'
   | 'admin-reports'
-  | 'admin-chat';
+  | 'admin-chat'
+  | 'admin-templates';
 
 // ========== User Interface ==========
 

@@ -99,6 +99,7 @@ model Specialty {
   // Relations
   consultants       ConsultantProfile[]
   milestoneDefaults MilestoneDefault[]
+  templates         Template[]
 
   @@map("specialties")
 }
@@ -397,6 +398,33 @@ enum ConfigType {
   NUMBER
   BOOLEAN
   JSON
+}
+
+// ============================================================================
+// TEMPLATE SYSTEM (Admin-uploaded downloadable templates)
+// ============================================================================
+
+model Template {
+  id            String  @id @default(cuid())
+  nameAr        String
+  nameEn        String
+  descriptionAr String?
+  descriptionEn String?
+  category      String? // e.g., "business-plan", "financial", "legal", "marketing", "pitch-deck"
+  specialtyId   String? // optional link to a specialty
+  fileName      String  // original uploaded file name
+  filePath      String  // stored file path on disk
+  fileType      String  // MIME type
+  fileSize      Int     // size in bytes
+  isActive      Boolean @default(true)
+  sortOrder     Int     @default(0)
+  downloadCount Int     @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  specialty Specialty? @relation(fields: [specialtyId], references: [id], onDelete: SetNull)
+
+  @@map("templates")
 }
 
 // ============================================================================

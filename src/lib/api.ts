@@ -637,6 +637,65 @@ export const adminApi = {
     request<unknown>(
       `/admin/chat${buildQuery(params as Record<string, string | number | undefined>)}`
     ),
+
+  // --- Templates (Admin) ---
+  /**
+   * List all templates (admin view, includes inactive)
+   */
+  getTemplates: (includeInactive?: boolean) =>
+    request<unknown[]>(
+      `/admin/templates${buildQuery({ includeInactive: includeInactive || undefined })}`
+    ),
+
+  /**
+   * Create a template with file upload
+   */
+  createTemplate: (formData: FormData) =>
+    uploadRequest<unknown>('/admin/templates', formData),
+
+  /**
+   * Update a template (metadata only)
+   */
+  updateTemplate: (data: {
+    id: string;
+    nameAr?: string;
+    nameEn?: string;
+    descriptionAr?: string;
+    descriptionEn?: string;
+    category?: string;
+    specialtyId?: string | null;
+    sortOrder?: number;
+    isActive?: boolean;
+  }) =>
+    request<unknown>('/admin/templates', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  /**
+   * Soft-delete a template (sets isActive = false)
+   */
+  deleteTemplate: (id: string) =>
+    request<{ message: string }>(`/admin/templates?id=${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    }),
+};
+
+// ========== Templates API (User-facing) ==========
+
+export const templatesApi = {
+  /**
+   * List active templates (for entrepreneurs/consultants)
+   */
+  getTemplates: (params?: { category?: string; specialtyId?: string }) =>
+    request<unknown[]>(
+      `/templates${buildQuery(params as Record<string, string | undefined>)}`
+    ),
+
+  /**
+   * Get download URL for a template
+   */
+  getDownloadUrl: (id: string) => `/api/templates/${encodeURIComponent(id)}/download`,
 };
 
 // ========== Notifications API ==========

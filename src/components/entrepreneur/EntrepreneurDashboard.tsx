@@ -42,6 +42,7 @@ import {
   chatApi,
   filesApi,
   notificationsApi,
+  templatesApi,
 } from '@/lib/api';
 
 import { Button } from '@/components/ui/button';
@@ -307,6 +308,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'لوحة التحكم', icon: LayoutDashboard, view: 'entrepreneur-dashboard' },
   { label: 'رحلتي', icon: Map, view: 'entrepreneur-milestones' },
   { label: 'حجوزاتي', icon: Calendar, view: 'entrepreneur-bookings' },
+  { label: 'القوالب', icon: FileText, view: 'entrepreneur-templates' },
   { label: 'المحادثات', icon: MessageCircle, view: 'entrepreneur-chat' },
   { label: 'الملفات', icon: FolderOpen, view: 'entrepreneur-files' },
 ];
@@ -391,6 +393,8 @@ export function EntrepreneurMainView() {
       return <EntrepreneurChat />;
     case 'entrepreneur-files':
       return <EntrepreneurFiles />;
+    case 'entrepreneur-templates':
+      return <EntrepreneurTemplates />;
     default:
       return <EntrepreneurOverview />;
   }
@@ -1754,6 +1758,248 @@ export function EntrepreneurFiles() {
               </CardContent>
             </Card>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ========== EntrepreneurTemplates ==========
+
+interface TemplateForUser {
+  id: string;
+  nameAr: string;
+  nameEn: string;
+  descriptionAr?: string;
+  descriptionEn?: string;
+  category?: string;
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+  downloadCount: number;
+  specialty?: { id: string; nameAr: string; nameEn: string } | null;
+  createdAt: string;
+}
+
+const TEMPLATE_CAT_LABELS: Record<string, string> = {
+  'business-plan': 'خطة عمل',
+  'financial': 'مالي',
+  'legal': 'قانوني',
+  'marketing': 'تسويقي',
+  'pitch-deck': 'عرض تقديمي',
+  'other': 'أخرى',
+};
+
+function formatFileSizeUser(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function getFileIconUser(mimeType: string): string {
+  if (mimeType.includes('pdf')) return '📄';
+  if (mimeType.includes('word') || mimeType.includes('document')) return '📝';
+  if (mimeType.includes('sheet') || mimeType.includes('excel')) return '📊';
+  if (mimeType.includes('presentation') || mimeType.includes('powerpoint')) return '📽️';
+  if (mimeType.includes('image')) return '🖼️';
+  if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('7z') || mimeType.includes('compressed')) return '📦';
+  return '📎';
+}
+
+function getFileExtColor(mimeType: string): string {
+  if (mimeType.includes('pdf')) return 'text-red-500';
+  if (mimeType.includes('word') || mimeType.includes('document')) return 'text-blue-500';
+  if (mimeType.includes('sheet') || mimeType.includes('excel')) return 'text-green-500';
+  if (mimeType.includes('presentation') || mimeType.includes('powerpoint')) return 'text-orange-500';
+  return 'text-gray-500';
+}
+
+export function EntrepreneurTemplates() {
+  const [templates, setTemplates] = useState<TemplateForUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [activeCategory, setActiveCategory] = useState<string>('all');
+
+  const loadTemplates = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await templatesApi.getTemplates();
+      if (res.success && res.data) {
+        setTemplates(res.data as TemplateForUser[]);
+      }
+    } catch {
+      // Silently handle
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadTemplates();
+  }, [loadTemplates]);
+
+  const handleDownload = async (tmpl: TemplateForUser) => {
+    setDownloadingId(tmpl.id);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(templatesApi.getDownloadUrl(tmpl.id), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) throw new Error('Download failed');
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = tmpl.fileName;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast.success(`تم تحميل: ${tmpl.nameAr}`);
+      // Update local download count
+      setTemplates(prev => prev.map(t =>
+        t.id === tmpl.id ? { ...t, downloadCount: t.downloadCount + 1 } : t
+      ));
+    } catch {
+      toast.error('فشل في تحميل القالب');
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  // Get unique categories
+  const categories = ['all', ...new Set(templates.map(t => t.category).filter(Boolean) as string[])];
+
+  // Filter by category
+  const filteredTemplates = activeCategory === 'all'
+    ? templates
+    : templates.filter(t => t.category === activeCategory);
+
+  if (loading) {
+    return (
+      <div className="p-6 space-y-4">
+        <Skeleton className="h-10 w-48" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-40 rounded-xl" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 sm:p-6 space-y-6">
+      {/* Header */}
+      <div>
+        <h2 className="text-xl font-bold text-gray-900">القوالب الجاهزة</h2>
+        <p className="text-sm text-gray-500 mt-1">قوالب مُعدّة من فريق المنصة لتسهيل رحلتك الريادية</p>
+      </div>
+
+      {/* Category Filters */}
+      {categories.length > 1 && (
+        <div className="flex gap-2 flex-wrap">
+          {categories.map((cat) => (
+            <Button
+              key={cat}
+              variant={activeCategory === cat ? 'default' : 'outline'}
+              size="sm"
+              className={activeCategory === cat ? 'bg-emerald-600 hover:bg-emerald-700' : ''}
+              onClick={() => setActiveCategory(cat)}
+            >
+              {cat === 'all' ? 'الكل' : (TEMPLATE_CAT_LABELS[cat] || cat)}
+            </Button>
+          ))}
+        </div>
+      )}
+
+      {/* Templates Grid */}
+      {filteredTemplates.length === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="py-16 text-center">
+            <FileText className="w-16 h-16 text-gray-200 mx-auto mb-4" />
+            <p className="text-gray-500 font-medium text-lg">لا توجد قوالب متاحة حاليًا</p>
+            <p className="text-gray-400 text-sm mt-2">سيتم إضافة قوالب جديدة قريبًا من فريق المنصة</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredTemplates.map((tmpl) => {
+            const fileExt = tmpl.fileName.split('.').pop()?.toUpperCase() || 'FILE';
+            return (
+              <Card
+                key={tmpl.id}
+                className="border border-emerald-100 hover:shadow-lg transition-all duration-300 hover:border-emerald-200 group"
+              >
+                <CardContent className="p-5">
+                  {/* File icon + extension badge */}
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 flex items-center justify-center text-3xl group-hover:scale-110 transition-transform">
+                      {getFileIconUser(tmpl.fileType)}
+                    </div>
+                    <Badge
+                      className={`text-[10px] font-mono px-2 py-0.5 ${getFileExtColor(tmpl.fileType)} bg-gray-50 border`}
+                      variant="outline"
+                    >
+                      {fileExt}
+                    </Badge>
+                  </div>
+
+                  {/* Name */}
+                  <h3 className="font-bold text-gray-900 mb-1 line-clamp-1">{tmpl.nameAr}</h3>
+                  <p className="text-xs text-gray-400 mb-2">{tmpl.nameEn}</p>
+
+                  {/* Description */}
+                  {tmpl.descriptionAr && (
+                    <p className="text-sm text-gray-600 mb-3 line-clamp-2 leading-relaxed">{tmpl.descriptionAr}</p>
+                  )}
+
+                  {/* Meta info */}
+                  <div className="flex items-center gap-2 text-xs text-gray-400 mb-4 flex-wrap">
+                    {tmpl.category && (
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-emerald-50 text-emerald-700">
+                        {TEMPLATE_CAT_LABELS[tmpl.category] || tmpl.category}
+                      </Badge>
+                    )}
+                    <span>{formatFileSizeUser(tmpl.fileSize)}</span>
+                    <span>·</span>
+                    <span>{tmpl.downloadCount} تحميل</span>
+                  </div>
+
+                  {tmpl.specialty && (
+                    <div className="text-xs text-gray-400 mb-4">
+                      التخصص: {tmpl.specialty.nameAr}
+                    </div>
+                  )}
+
+                  {/* Download Button */}
+                  <Button
+                    onClick={() => handleDownload(tmpl)}
+                    disabled={downloadingId === tmpl.id}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                    size="sm"
+                  >
+                    {downloadingId === tmpl.id ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin ml-2" />
+                        جاري التحميل...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="w-4 h-4 ml-2" />
+                        تحميل القالب
+                      </>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
