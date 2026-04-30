@@ -2,8 +2,6 @@
 # Usage: docker compose -f docker-compose.prod.yml up -d
 # Requires: .env file with production values
 
-version: '3.8'
-
 services:
   # ─── Caddy Reverse Proxy ─────────────────────────────────
   caddy:
