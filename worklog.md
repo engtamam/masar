@@ -755,3 +755,26 @@ Stage Summary:
 - Consultants are created by admin from the admin panel
 - Admin credentials are fully configurable through environment variables
 - Database now has only the admin@masar.sa account
+
+---
+Task ID: legal-pages
+Agent: main
+Task: Add Privacy Policy and Terms of Service pages with legal disclaimers, footer links, and registration checkbox
+
+Work Log:
+- Created content/privacy-policy.md — Comprehensive Arabic privacy policy (11 sections: introduction, data collection, data usage, data sharing, data security, data retention, user rights, cookies, external links, policy changes, contact)
+- Created content/terms-of-service.md — Comprehensive Arabic terms of service (14 sections: acceptance, definitions, service nature & disclaimer, user obligations, IP rights, consultants, bookings, data room, account termination, liability limits, governing law, amendments, general provisions, contact)
+- Strong legal disclaimers in Terms: entrepreneur bears ALL risks, platform/consultants fully absolved from liability, idea theft disclaimer, IP protection is user's sole responsibility, no legal claims allowed against platform
+- Created src/components/legal/LegalPage.tsx — Reusable legal page component with ReactMarkdown rendering, emerald header banner, sticky navigation, styled markdown content, footer with links
+- Created src/app/privacy/page.tsx — Reads content/privacy-policy.md at build time, renders with LegalPage component
+- Created src/app/terms/page.tsx — Reads content/terms-of-service.md at build time, renders with LegalPage component
+- Updated MasarLanding.tsx footer: added "سياسة الخصوصية" and "شروط وأحكام الاستخدام" links, fixed copyright year to dynamic
+- Updated AuthPages.tsx RegisterPage: added acceptedTerms state, terms checkbox with links to /terms and /privacy, submit button disabled until terms accepted, validation requires acceptance, added amber legal disclaimer notice below info box, imported FileText icon
+
+Stage Summary:
+- Privacy Policy and Terms of Service as markdown files for easy editing
+- Next.js routes /privacy and /terms render from markdown
+- Footer links added to landing page and legal page footers
+- Registration requires explicit checkbox acceptance of terms + privacy policy
+- Legal disclaimer notice on registration page
+- Build passes successfully, both pages render correctly

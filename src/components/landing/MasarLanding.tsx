@@ -833,10 +833,22 @@ function MasarLanding({ onSignUp, onLogin }: MasarLandingProps) {
             <button className="hover:text-emerald-400 transition-colors">
               تواصل معنا
             </button>
+            <a
+              href="/privacy"
+              className="hover:text-emerald-400 transition-colors"
+            >
+              سياسة الخصوصية
+            </a>
+            <a
+              href="/terms"
+              className="hover:text-emerald-400 transition-colors"
+            >
+              شروط وأحكام الاستخدام
+            </a>
           </div>
 
           <div className="border-t border-gray-800 pt-8 text-center text-xs text-gray-600">
-            © 2025 مَسَار - جميع الحقوق محفوظة
+            © {new Date().getFullYear()} مَسَار - جميع الحقوق محفوظة
           </div>
         </div>
       </footer>

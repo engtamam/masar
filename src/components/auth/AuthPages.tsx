@@ -6,7 +6,7 @@
 // The system automatically routes each role to their dedicated dashboard
 
 import { useState, type FormEvent } from 'react';
-import { Compass, Mail, Lock, User, Briefcase, Eye, EyeOff, Loader2, Shield, Users, CheckCircle, KeyRound, ArrowRight } from 'lucide-react';
+import { Compass, Mail, Lock, User, Briefcase, Eye, EyeOff, Loader2, Shield, Users, CheckCircle, KeyRound, ArrowRight, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useAppStore, getDefaultView } from '@/lib/store';
@@ -292,6 +292,7 @@ export function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -311,6 +312,10 @@ export function RegisterPage() {
     }
     if (password !== confirmPassword) {
       toast.error('كلمتا المرور غير متطابقتين');
+      return;
+    }
+    if (!acceptedTerms) {
+      toast.error('يجب الموافقة على شروط الاستخدام وسياسة الخصوصية');
       return;
     }
 
@@ -490,11 +495,34 @@ export function RegisterPage() {
               </div>
             </div>
 
+            {/* Terms and conditions acceptance */}
+            <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
+              <input
+                type="checkbox"
+                id="accept-terms"
+                checked={acceptedTerms}
+                onChange={(e) => setAcceptedTerms(e.target.checked)}
+                className="mt-1 w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 accent-emerald-600 shrink-0"
+                disabled={isLoading}
+              />
+              <label htmlFor="accept-terms" className="text-xs text-gray-600 leading-relaxed cursor-pointer">
+                أقر بأنني قرأت ووافقت على{' '}
+                <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:text-emerald-700 underline font-semibold">
+                  شروط وأحكام الاستخدام
+                </a>
+                {' '}و{' '}
+                <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:text-emerald-700 underline font-semibold">
+                  سياسة الخصوصية
+                </a>
+                ، وأتحمّل كامل المسؤولية عن مشاركة معلوماتي وأفكاري عبر المنصة.
+              </label>
+            </div>
+
             {/* Submit button */}
             <Button
               type="submit"
               className="w-full h-11 text-base font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md transition-all mt-2"
-              disabled={isLoading}
+              disabled={isLoading || !acceptedTerms}
               size="lg"
             >
               {isLoading ? (
@@ -513,6 +541,16 @@ export function RegisterPage() {
             <p className="text-xs text-blue-800">
               💡 <strong>ملاحظة:</strong> حسابات المستشارين والإدارة يتم إنشاؤها من قبل مدير النظام. إذا كنت مستشاراً، تواصل مع الإدارة للحصول على بيانات الدخول.
             </p>
+          </div>
+
+          {/* Legal disclaimer summary */}
+          <div className="mt-3 p-3 bg-amber-50/80 rounded-lg border border-amber-100">
+            <div className="flex items-start gap-2">
+              <FileText className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-800 leading-relaxed">
+                <strong>تنبيه قانوني:</strong> المنصة والمستشارون يقدّمون إرشاداً فقط ولا يتحملون أي مسؤولية عن نتائج مشروعك. أنت المسؤول الوحيد عن قرار مشاركة فكرتك ومعلوماتك، وتتحمّل كامل المخاطر المتعلقة بذلك.
+              </p>
+            </div>
           </div>
         </CardContent>
 
