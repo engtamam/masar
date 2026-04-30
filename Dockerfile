@@ -20,8 +20,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Install curl for healthcheck (Alpine)
-RUN apk add --no-cache curl
+# Install curl for healthcheck (Debian-based image)
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user (compatible with all distros)
 RUN groupadd -g 1001 nodejs || true
