@@ -33,7 +33,7 @@ setup: ## First-time dev setup: install bun + deps + push schema + seed data
 
 prod-setup: ## First-time production setup (direct, no Docker): install bun + deps + build + push schema + seed
 	@echo "🚀 Setting up Masar Platform for production..."
-	@which bun > /dev/null 2>&1 || { echo "📦 Installing Bun..."; curl -fsSL https://bun.sh/install | bash; . ~/.bashrc; }
+	@which unzip > /dev/null 2>&1 || { echo "📦 Installing system dependencies..."; sudo apt update -qq && sudo apt install -y unzip curl; }\n	@which bun > /dev/null 2>&1 || { echo "📦 Installing Bun..."; curl -fsSL https://bun.sh/install | bash; . ~/.bashrc; }
 	@mkdir -p db upload/templates
 	bun install
 	bun run db:generate
@@ -55,7 +55,7 @@ fresh: ## Delete everything, reinstall, and start fresh
 	rm -rf node_modules
 	rm -rf db/custom.db
 	rm -rf db/production.db
-	@which bun > /dev/null 2>&1 || { echo "📦 Installing Bun..."; curl -fsSL https://bun.sh/install | bash; . ~/.bashrc; }
+	@which unzip > /dev/null 2>&1 || { echo "📦 Installing system dependencies..."; sudo apt update -qq && sudo apt install -y unzip curl; }\n	@which bun > /dev/null 2>&1 || { echo "📦 Installing Bun..."; curl -fsSL https://bun.sh/install | bash; . ~/.bashrc; }
 	bun install
 	bun run db:generate
 	bun run db:push

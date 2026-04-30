@@ -58,6 +58,12 @@ check_prerequisites() {
         err "JWT_SECRET must be changed from the default value in .env"
     fi
 
+    # Install system dependencies
+    if ! command -v unzip &> /dev/null || ! command -v curl &> /dev/null; then
+        log "Installing system dependencies..."
+        sudo apt update -qq && sudo apt install -y unzip curl
+    fi
+
     # Check Docker
     if ! command -v docker &> /dev/null; then
         log "Installing Docker..."
