@@ -347,14 +347,19 @@ const CONSULTANT_NAV_ITEMS: NavItem[] = [
 ];
 
 export function ConsultantSidebar() {
-  const { currentView, setCurrentView, user, logout } = useAppStore();
+  const { currentView, setCurrentView, user, logout, setSidebarOpen } = useAppStore();
 
   // Extract specialty name from consultantProfile
   const consultantProfile = user?.consultantProfile as ConsultantProfile | undefined;
   const specialtyName = consultantProfile?.specialty?.nameAr || '';
 
+  const handleNav = (view: AppView) => {
+    setCurrentView(view);
+    setSidebarOpen(false); // Close mobile sidebar on navigation
+  };
+
   return (
-    <aside className="w-64 min-h-screen bg-gradient-to-b from-emerald-800 to-emerald-900 text-white flex flex-col shadow-xl">
+    <aside className="w-64 md:w-64 min-h-screen bg-gradient-to-b from-emerald-800 to-emerald-900 text-white flex flex-col shadow-xl">
       {/* Logo */}
       <div className="p-5 flex items-center gap-3 border-b border-emerald-700/50">
         <div className="w-10 h-10 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center">
@@ -374,7 +379,7 @@ export function ConsultantSidebar() {
           return (
             <button
               key={item.view}
-              onClick={() => setCurrentView(item.view)}
+              onClick={() => handleNav(item.view)}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
                 isActive
                   ? 'bg-white/15 text-white shadow-lg shadow-emerald-900/30'
@@ -408,7 +413,7 @@ export function ConsultantSidebar() {
           </div>
         </div>
         <button
-          onClick={logout}
+          onClick={() => { setSidebarOpen(false); logout(); }}
           className="w-full flex items-center gap-2 px-3 py-2 text-sm text-emerald-300 hover:text-white hover:bg-red-500/20 rounded-lg transition-colors"
         >
           <LogOut className="w-4 h-4" />

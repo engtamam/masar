@@ -22,6 +22,7 @@ import {
   AdminMainView,
 } from '@/components/admin/AdminDashboard';
 import { authApi } from '@/lib/api';
+import { DashboardLayout } from '@/components/shared/DashboardLayout';
 
 // Track hydration state outside of React render cycle
 let _hydrated = false;
@@ -125,34 +126,25 @@ export default function Home() {
   // Authenticated dashboards
   if (user?.role === 'ENTREPRENEUR') {
     return (
-      <div className="min-h-screen flex bg-gray-50" dir="rtl">
-        <EntrepreneurSidebar />
-        <main className="flex-1 overflow-auto">
-          <EntrepreneurMainView />
-        </main>
-      </div>
+      <DashboardLayout sidebar={<EntrepreneurSidebar />} title="لوحة رائد الأعمال">
+        <EntrepreneurMainView />
+      </DashboardLayout>
     );
   }
 
   if (user?.role === 'CONSULTANT') {
     return (
-      <div className="min-h-screen flex bg-gray-50" dir="rtl">
-        <ConsultantSidebar />
-        <main className="flex-1 overflow-auto">
-          <ConsultantMainView />
-        </main>
-      </div>
+      <DashboardLayout sidebar={<ConsultantSidebar />} title="لوحة المستشار">
+        <ConsultantMainView />
+      </DashboardLayout>
     );
   }
 
   if (user?.role === 'ADMIN') {
     return (
-      <div className="min-h-screen flex bg-gray-50" dir="rtl">
-        <AdminSidebar />
-        <main className="flex-1 overflow-auto">
-          <AdminMainView />
-        </main>
-      </div>
+      <DashboardLayout sidebar={<AdminSidebar />} title="لوحة الإدارة">
+        <AdminMainView />
+      </DashboardLayout>
     );
   }
 

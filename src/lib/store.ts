@@ -67,6 +67,11 @@ interface AppState {
   activeChatRoomId: string | null;
   setActiveChatRoomId: (id: string | null) => void;
 
+  // Sidebar state (mobile)
+  sidebarOpen: boolean;
+  setSidebarOpen: (open: boolean) => void;
+  toggleSidebar: () => void;
+
   // Loading state
   isLoading: boolean;
   setLoading: (loading: boolean) => void;
@@ -206,6 +211,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   // Chat state
   activeChatRoomId: null,
   setActiveChatRoomId: (activeChatRoomId) => set({ activeChatRoomId }),
+
+  // Sidebar state (mobile)
+  sidebarOpen: false,
+  setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
+  toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
 
   // Loading state
   isLoading: false,
