@@ -1,7 +1,7 @@
 'use client';
 
-// Nibras Landing Page - Arabic RTL
-// A stunning, emotionally engaging landing page for the Nibras initiative
+// Masar Landing Page - Arabic RTL
+// A stunning, emotionally engaging landing page for the Masar initiative
 // All UI text in Arabic, code/comments in English
 
 import { useEffect, useRef, useState, useCallback } from 'react';
@@ -37,7 +37,7 @@ import {
 } from 'lucide-react';
 
 // ─── Props ───────────────────────────────────────────────────────────
-interface NibrasLandingProps {
+interface MasarLandingProps {
   onSignUp: () => void;
   onLogin: () => void;
 }
@@ -223,7 +223,7 @@ function ScrollToTop() {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // MAIN LANDING COMPONENT
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function NibrasLanding({ onSignUp, onLogin }: NibrasLandingProps) {
+function MasarLanding({ onSignUp, onLogin }: MasarLandingProps) {
   // Smooth scroll helper
   const scrollTo = useCallback((id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
@@ -268,7 +268,7 @@ function NibrasLanding({ onSignUp, onLogin }: NibrasLandingProps) {
             className="mb-6"
           >
             <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-white/15 backdrop-blur-sm border border-white/20 shadow-lg">
-              <Lamp className="size-10 text-emerald-200" />
+              <Compass className="size-10 text-emerald-200" />
             </div>
           </motion.div>
 
@@ -281,7 +281,7 @@ function NibrasLanding({ onSignUp, onLogin }: NibrasLandingProps) {
             className="text-6xl sm:text-7xl md:text-8xl lg:text-9xl font-bold text-white mb-4 tracking-tight"
             style={{ textShadow: '0 4px 30px rgba(0,0,0,0.15)' }}
           >
-            نِبْراس
+            مَسَار
           </motion.h1>
 
           {/* Tagline */}
@@ -292,7 +292,7 @@ function NibrasLanding({ onSignUp, onLogin }: NibrasLandingProps) {
             animate="visible"
             className="text-xl sm:text-2xl md:text-3xl text-emerald-100 font-light mb-6"
           >
-            ضوءُك في بداية الطريق
+            طريقك من الفكرة إلى القبول
           </motion.p>
 
           {/* Subtitle */}
@@ -445,7 +445,7 @@ function NibrasLanding({ onSignUp, onLogin }: NibrasLandingProps) {
             custom={1}
             className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-6 leading-tight"
           >
-            نِبْراس هو الجسر اللي{' '}
+            مَسَار هو الجسر اللي{' '}
             <span className="text-emerald-600">يوصّلك</span>
           </motion.h2>
 
@@ -502,7 +502,7 @@ function NibrasLanding({ onSignUp, onLogin }: NibrasLandingProps) {
               className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-4"
             >
               رحلتك مع{' '}
-              <span className="text-emerald-600">نِبْراس</span>
+              <span className="text-emerald-600">مَسَار</span>
             </motion.h2>
             <motion.p
               variants={fadeUp}
@@ -616,7 +616,7 @@ function NibrasLanding({ onSignUp, onLogin }: NibrasLandingProps) {
               custom={1}
               className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900"
             >
-              ما يميّز <span className="text-emerald-600">نِبْراس</span>
+              ما يميّز <span className="text-emerald-600">مَسَار</span>
             </motion.h2>
           </div>
 
@@ -767,7 +767,7 @@ function NibrasLanding({ onSignUp, onLogin }: NibrasLandingProps) {
 
             <div className="relative z-10 p-10 sm:p-14 text-center">
               <motion.div variants={fadeUp} custom={1}>
-                <Lamp className="size-12 text-emerald-200 mx-auto mb-6" />
+                <Compass className="size-12 text-emerald-200 mx-auto mb-6" />
               </motion.div>
               <motion.h2
                 variants={fadeUp}
@@ -809,11 +809,11 @@ function NibrasLanding({ onSignUp, onLogin }: NibrasLandingProps) {
           <div className="flex flex-col items-center text-center mb-10">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-lg bg-emerald-600 flex items-center justify-center">
-                <Lamp className="size-5 text-white" />
+                <Compass className="size-5 text-white" />
               </div>
-              <span className="text-2xl font-bold text-white">نِبْراس</span>
+              <span className="text-2xl font-bold text-white">مَسَار</span>
             </div>
-            <p className="text-emerald-400/70 text-sm mb-1">ضوءُك في بداية الطريق</p>
+            <p className="text-emerald-400/70 text-sm mb-1">طريقك من الفكرة إلى القبول</p>
             <p className="text-gray-500 text-sm">مبادرة مجانية لدعم رواد الأعمال الناشئين</p>
           </div>
 
@@ -836,7 +836,7 @@ function NibrasLanding({ onSignUp, onLogin }: NibrasLandingProps) {
           </div>
 
           <div className="border-t border-gray-800 pt-8 text-center text-xs text-gray-600">
-            © 2025 نِبْراس - جميع الحقوق محفوظة
+            © 2025 مَسَار - جميع الحقوق محفوظة
           </div>
         </div>
       </footer>
@@ -990,4 +990,4 @@ function MilestoneCard({ milestone, index }: { milestone: typeof MILESTONES[0]; 
   );
 }
 
-export { NibrasLanding };
+export { MasarLanding };

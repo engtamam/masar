@@ -7,7 +7,7 @@
 import { useEffect } from 'react';
 import { useAppStore } from '@/lib/store';
 import { LoginPage, RegisterPage } from '@/components/auth/AuthPages';
-import { NibrasLanding } from '@/components/landing/NibrasLanding';
+import { MasarLanding } from '@/components/landing/MasarLanding';
 import {
   EntrepreneurSidebar,
   EntrepreneurMainView,
@@ -106,7 +106,7 @@ export default function Home() {
 
   // Default: Landing page for unauthenticated visitors
   return (
-    <NibrasLanding
+    <MasarLanding
       onSignUp={() => setCurrentView('register')}
       onLogin={() => setCurrentView('login')}
     />

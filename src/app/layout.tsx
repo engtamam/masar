@@ -3,7 +3,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 
 export const metadata: Metadata = {
-  title: "نِبْراس - مبادرة لدعم رواد الأعمال الناشئين",
+  title: "مَسَار - مبادرة لدعم رواد الأعمال الناشئين",
   description: "مبادرة مجانية تُجهّز رواد الأعمال الناشئين للقبول في الحاضنات والمسرّعات عبر رحلة إرشادية مُهيكلة",
   icons: {
     icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",

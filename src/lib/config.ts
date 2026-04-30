@@ -5,7 +5,7 @@ import { db } from '@/lib/db'
 
 // Default configuration values
 const DEFAULTS: Record<string, { value: string; type: 'STRING' | 'NUMBER' | 'BOOLEAN' | 'JSON'; description: string }> = {
-  PLATFORM_NAME: { value: 'نِبْراس', type: 'STRING', description: 'Platform display name' },
+  PLATFORM_NAME: { value: 'مَسَار', type: 'STRING', description: 'Platform display name' },
   DEFAULT_MONTHLY_QUOTA: { value: '4', type: 'NUMBER', description: 'Default monthly booking limit for entrepreneurs' },
   DEFAULT_SLOT_DURATION: { value: '30', type: 'NUMBER', description: 'Default consultation slot duration in minutes' },
   JITSI_DOMAIN: { value: 'meet.jit.si', type: 'STRING', description: 'Jitsi Meet domain for video calls' },

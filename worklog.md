@@ -645,3 +645,33 @@ Created a stunning, professional Arabic RTL landing page for the "نِبْراس
 - Dev server compiles successfully: `GET / 200 in 210ms`
 - All imports resolved correctly (individual component paths instead of barrel export)
 - Removed unused `fadeIn` variant
+
+---
+Task ID: rename-nibras-to-masar
+Agent: main
+Task: Rename platform from "نِبْراس" (Nibras) to "مَسَار" (Masar)
+
+Work Log:
+- Searched entire codebase for all occurrences of "نِبْراس", "Nibras"
+- Found references in 7 source files + .env.example
+- Updated NibrasLanding.tsx → MasarLanding.tsx (component name, all Arabic text, tagline)
+- Changed Lamp icon to Compass icon throughout landing page (hero, CTA, footer)
+- Updated tagline from "ضوءُك في بداية الطريق" to "طريقك من الفكرة إلى القبول"
+- Updated config.ts PLATFORM_NAME default
+- Updated AuthPages.tsx PLATFORM_NAME and TAGLINE constants
+- Updated layout.tsx page title
+- Updated page.tsx import from NibrasLanding to MasarLanding
+- Updated AdminDashboard.tsx (2 occurrences)
+- Updated EntrepreneurDashboard.tsx (2 occurrences)
+- Updated ConsultantDashboard.tsx (2 occurrences)
+- Updated .env.example
+- Renamed file from NibrasLanding.tsx to MasarLanding.tsx
+- Verified zero remaining references to old name in source code
+- Build succeeded with no errors
+
+Stage Summary:
+- Platform renamed from "نِبْراس" to "مَسَار" across all files
+- New tagline: "طريقك من الفكرة إلى القبول"
+- Logo icon changed from Lamp (مصباح) to Compass (بوصلة) for better brand alignment
+- File renamed: NibrasLanding.tsx → MasarLanding.tsx
+- Production build compiles successfully
