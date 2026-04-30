@@ -34,17 +34,21 @@ services:
     environment:
       - DATABASE_URL=file:/app/db/production.db
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-}
       - NODE_ENV=production
       - NEXTAUTH_URL=${NEXTAUTH_URL:-https://${DOMAIN:-localhost}}
       - PLATFORM_NAME=${PLATFORM_NAME:-مَسَار}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@masar.sa}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
+      - ADMIN_NAME=${ADMIN_NAME:-مدير المنصة}
     volumes:
       - db-data:/app/db
       - upload-data:/app/upload
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/api"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
       start_period: 60s
     networks:
       - masar-network

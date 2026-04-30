@@ -7,7 +7,23 @@
 	db-generate db-setup lint clean docker-up docker-down docker-build \
 	docker-logs docker-restart prod-up prod-down prod-logs prod-status \
 	prod-reset prod-update prod-backup prod-restore prod-seed setup fresh nuke \
-	backup restore backup-list gen-keys deploy
+	backup restore backup-list gen-keys deploy ensure-bun
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# BUN AUTO-INSTALL — used by all targets that need bun
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ensure-bun: ## (Internal) Ensure bun is installed
+	@command -v bun > /dev/null 2>&1 || { \
+		echo "📦 Bun not found — installing..."; \
+		curl -fsSL https://bun.sh/install | bash; \
+		export PATH="$$HOME/.bun/bin:$$PATH"; \
+	}
+	@command -v bun > /dev/null 2>&1 || { \
+		export PATH="$$HOME/.bun/bin:$$PATH"; \
+		hash -r; \
+		bun --version; \
+	}
 
 # Default target
 help: ## Show this help message
@@ -29,11 +45,20 @@ help: ## Show this help message
 # QUICK START
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-setup: ## First-time dev setup: install bun + deps + push schema + seed data
+setup: ensure-bun ## First-time dev setup: install deps + push schema + seed data
+	bun install
+	bun run db:generate
+	bun run db:push
+	bun run src/lib/seed.ts
+	@echo ""
+	@echo "✅ Dev setup complete! Run 'make dev' to start."
+	@echo ""
+	@echo "📋 Admin Account (only account seeded):"
+	@echo "   Email:    admin@masar.sa"
+	@echo "   Password: admin123"
 
-prod-setup: ## First-time production setup (direct, no Docker): install bun + deps + build + push schema + seed
+prod-setup: ensure-bun ## First-time production setup (direct, no Docker): install deps + build + push schema + seed
 	@echo "🚀 Setting up Masar Platform for production..."
-	@which unzip > /dev/null 2>&1 || { echo "📦 Installing system dependencies..."; sudo apt update -qq && sudo apt install -y unzip curl; }\n       @which bun > /dev/null 2>&1 || { echo "📦 Installing Bun..."; curl -fsSL https://bun.sh/install | bash; . ~/.bashrc; }
 	@mkdir -p db upload/templates
 	bun install
 	bun run db:generate
@@ -47,15 +72,13 @@ prod-setup: ## First-time production setup (direct, no Docker): install bun + de
 	@echo "   Email:    admin@masar.sa"
 	@echo "   Password: admin123"
 
-
-fresh: ## Delete everything, reinstall, and start fresh
+fresh: ensure-bun ## Delete everything, reinstall, and start fresh
 	@echo "⚠️  This will delete ALL data and reinstall everything..."
 	@read -p "Type 'yes' to confirm: " confirm && [ "$$confirm" = "yes" ] || exit 1
 	rm -rf .next
 	rm -rf node_modules
 	rm -rf db/custom.db
 	rm -rf db/production.db
-	@which unzip > /dev/null 2>&1 || { echo "📦 Installing system dependencies..."; sudo apt update -qq && sudo apt install -y unzip curl; }\n       @which bun > /dev/null 2>&1 || { echo "📦 Installing Bun..."; curl -fsSL https://bun.sh/install | bash; . ~/.bashrc; }
 	bun install
 	bun run db:generate
 	bun run db:push
@@ -99,13 +122,13 @@ deploy: ## Deploy with Docker (Caddy + Web + Chat) — same as bash deploy.sh
 # DEVELOPMENT
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-dev: ## Start development server with hot reload
+dev: ensure-bun ## Start development server with hot reload
 	bun run dev
 
-dev-chat: ## Start chat WebSocket service
+dev-chat: ensure-bun ## Start chat WebSocket service
 	cd mini-services/chat-service && bun run dev
 
-dev-all: ## Start all services (web + chat)
+dev-all: ensure-bun ## Start all services (web + chat)
 	@echo "Starting all services..."
 	@bun run dev &
 	@cd mini-services/chat-service && bun run dev &
@@ -115,21 +138,21 @@ dev-all: ## Start all services (web + chat)
 # DATABASE
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-db-push: ## Push Prisma schema to database
+db-push: ensure-bun ## Push Prisma schema to database
 	bun run db:push
 
-db-generate: ## Generate Prisma client
+db-generate: ensure-bun ## Generate Prisma client
 	bun run db:generate
 
-db-reset: ## Reset database (WARNING: deletes all data)
+db-reset: ensure-bun ## Reset database (WARNING: deletes all data)
 	bun run db:reset
 
-seed: ## Seed database with initial data (idempotent - safe to run multiple times)
+seed: ensure-bun ## Seed database with initial data (idempotent - safe to run multiple times)
 	bun run src/lib/seed.ts
 
 db-setup: db-push seed ## Setup database (push schema + seed)
 
-db-reset-fresh: ## Reset database completely and re-seed from scratch
+db-reset-fresh: ensure-bun ## Reset database completely and re-seed from scratch
 	@echo "Resetting database..."
 	rm -f db/custom.db
 	bun run db:generate
@@ -141,23 +164,23 @@ db-reset-fresh: ## Reset database completely and re-seed from scratch
 # BUILD & PRODUCTION (LOCAL)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-build: ## Build for production
+build: ensure-bun ## Build for production
 	bun run build
 
-start: ## Start production server
+start: ensure-bun ## Start production server
 	bun run start
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # CODE QUALITY
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-lint: ## Run ESLint
+lint: ensure-bun ## Run ESLint
 	bun run lint
 
-lint-fix: ## Run ESLint with auto-fix
+lint-fix: ensure-bun ## Run ESLint with auto-fix
 	bun run lint --fix
 
-typecheck: ## Run TypeScript type checking
+typecheck: ensure-bun ## Run TypeScript type checking
 	bun run tsc --noEmit
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -225,7 +248,7 @@ backup: ## Backup dev database + uploaded files (save to ./backups/)
 	cp .env.production backups/env_prod_$$(date +%Y%m%d_%H%M%S) 2>/dev/null || true
 	@echo "✅ Backup complete! Files saved to ./backups/"
 
-restore: ## Restore from a backup file (usage: make restore DB=file.sqlite UPLOAD=file.tar.gz)
+restore: ensure-bun ## Restore from a backup file (usage: make restore DB=file.sqlite UPLOAD=file.tar.gz)
 	@echo "⚠️  This will OVERWRITE current database and files!"
 	@read -p "Type 'yes' to confirm: " confirm && [ "$$confirm" = "yes" ] || exit 1
 	@if [ -z "$$DB" ]; then echo "❌ Specify DB file: make restore DB=backups/masar_db_XXXXX.sqlite"; exit 1; fi

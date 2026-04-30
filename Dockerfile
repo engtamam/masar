@@ -20,21 +20,24 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Create non-root user (works on all distros)
-RUN groupadd -g 1001 nodejs && useradd -u 1001 -g nodejs -s /bin/sh nextjs
+# Install curl for healthcheck (Alpine)
+RUN apk add --no-cache curl
 
-# Copy necessary files
+# Create non-root user (compatible with all distros)
+RUN groupadd -g 1001 nodejs || true
+RUN useradd -u 1001 -g nodejs -s /bin/sh nextjs || true
+
+# Copy standalone output
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/db ./db
-COPY --from=builder /app/mini-services ./mini-services
-COPY --from=builder /app/upload ./upload
 
-# Set permissions
-RUN mkdir -p /app/upload && chown nextjs:nodejs /app/upload
-RUN mkdir -p /app/db && chown nextjs:nodejs /app/db
+# Copy prisma schema and seed script (needed for seed command inside container)
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/src/lib/seed.ts ./src/lib/seed.ts
+
+# Create data directories with correct permissions
+RUN mkdir -p /app/db /app/upload && chown -R nextjs:nodejs /app/db /app/upload
 
 USER nextjs
 
