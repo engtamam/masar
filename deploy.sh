@@ -114,11 +114,11 @@ full_deploy() {
 
     # Push database schema (create tables)
     log "Pushing database schema..."
-    docker compose -f ${COMPOSE_FILE} exec web bun run db:push --accept-data-loss
+    docker compose -f ${COMPOSE_FILE} exec web npx prisma db push --accept-data-loss
 
     # Seed the database
     log "Seeding database with initial data..."
-    docker compose -f ${COMPOSE_FILE} exec web bun run src/lib/seed.ts
+    docker compose -f ${COMPOSE_FILE} exec web npx tsx src/lib/seed.ts
 
     # Show status
     show_status
@@ -232,7 +232,7 @@ backup_database() {
 # ─── Seed database ────────────────────────────────────────
 seed_database() {
     log "Seeding database..."
-    docker compose -f ${COMPOSE_FILE} exec web bun run src/lib/seed.ts
+    docker compose -f ${COMPOSE_FILE} exec web npx tsx src/lib/seed.ts
     log "Seeding complete!"
 }
 

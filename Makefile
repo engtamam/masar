@@ -226,7 +226,7 @@ prod-reset: ## Wipe production data and start fresh
 	docker compose -f docker-compose.prod.yml up -d --build
 	@echo "Waiting for services to start..."
 	@sleep 30
-	docker compose -f docker-compose.prod.yml exec web bun run src/lib/seed.ts
+	docker compose -f docker-compose.prod.yml exec web npx tsx src/lib/seed.ts
 	@echo "✅ Production reset complete!"
 
 prod-update: ## Pull latest code and redeploy production
@@ -299,7 +299,7 @@ prod-restore: ## Restore production DB (usage: make prod-restore DB=backups/file
 	@echo "✅ Production database restored! Restart the service: make prod-down && make prod-up"
 
 prod-seed: ## Seed production database
-	docker compose -f docker-compose.prod.yml exec web bun run src/lib/seed.ts
+	docker compose -f docker-compose.prod.yml exec web npx tsx src/lib/seed.ts
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # UI-ONLY DEPLOY (fast — no DB, no Caddy, no Chat restart)
@@ -314,8 +314,8 @@ ui-deploy: ## Rebuild & restart ONLY the web (UI) container — fast for UI chan
 	@sleep 5
 	@for i in 1 2 3 4 5 6; do \
 		if docker compose -f docker-compose.prod.yml exec -T web curl -sf http://localhost:3000/api/health > /dev/null 2>&1; then \
-		        echo "✅ UI deployed & healthy! (Caddy + Chat + DB untouched)"; \
-		        exit 0; \
+			echo "✅ UI deployed & healthy! (Caddy + Chat + DB untouched)"; \
+			exit 0; \
 		fi; \
 		echo "  Waiting... ($$i/6)"; \
 		sleep 5; \
