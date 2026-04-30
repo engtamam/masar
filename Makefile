@@ -47,22 +47,6 @@ prod-setup: ## First-time production setup (direct, no Docker): install bun + de
 	@echo "   Email:    admin@masar.sa"
 	@echo "   Password: admin123"
 
-setup: ## First-time dev setup: install bun + deps + push schema + seed data
-	@echo "🚀 Setting up Masar Platform..."
-	@which bun > /dev/null 2>&1 || { echo "📦 Installing Bun..."; curl -fsSL https://bun.sh/install | bash; . ~/.bashrc; }
-	bun install
-	bun run db:generate
-	bun run db:push
-	bun run src/lib/seed.ts
-	@echo ""
-	@echo "✅ Setup complete! Run 'make dev' to start the development server."
-	@echo ""
-	@echo "📋 Admin Account (only account seeded):"
-	@echo "   Email:    admin@masar.sa"
-	@echo "   Password: admin123"
-	@echo ""
-	@echo "   Consultants → Created by admin from the admin panel"
-	@echo "   Entrepreneurs → Register themselves from the landing page"
 
 fresh: ## Delete everything, reinstall, and start fresh
 	@echo "⚠️  This will delete ALL data and reinstall everything..."
