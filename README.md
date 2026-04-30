@@ -27,15 +27,32 @@ Open **http://localhost:3000** — you're live.
 
 ---
 
-## Default Accounts (after seeding)
+## Default Account (after seeding)
 
-| Role | Email | Password |
-|------|-------|----------|
-| Admin | `admin@masar.sa` | `Admin@123` |
-| Consultant | `consultant@masar.sa` | `Consultant@123` |
-| Entrepreneur | `entrepreneur@masar.sa` | `Entrepreneur@123` |
+Only one account is created during seeding — the **Admin**. Everyone else joins differently:
 
-Entrepreneurs can also **register themselves** from the landing page.
+| Role | How to Access |
+|------|---------------|
+| **Admin** | Seeded automatically — see credentials below |
+| **Consultant** | Account created by Admin from the admin panel |
+| **Entrepreneur** | Registers themselves from the landing page |
+
+### Admin Credentials
+
+By default:
+
+| | Value |
+|---|---|
+| Email | `admin@masar.sa` |
+| Password | `admin123` |
+
+**⚠️ Change these in production!** Set in `.env`:
+
+```env
+ADMIN_EMAIL=your-email@example.com
+ADMIN_PASSWORD=your-secure-password
+ADMIN_NAME=Your Name
+```
 
 ---
 
