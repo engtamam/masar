@@ -112,6 +112,10 @@ full_deploy() {
         err "Web service failed to become healthy. Check logs: docker compose -f ${COMPOSE_FILE} logs web"
     fi
 
+    # Push database schema (create tables)
+    log "Pushing database schema..."
+    docker compose -f ${COMPOSE_FILE} exec web bun run db:push --accept-data-loss
+
     # Seed the database
     log "Seeding database with initial data..."
     docker compose -f ${COMPOSE_FILE} exec web bun run src/lib/seed.ts
