@@ -1,5 +1,6 @@
 // POST /api/auth/register
 // Register a new entrepreneur account
+// No longer creates milestones — those are created when a project is created via onboarding
 
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
@@ -10,7 +11,7 @@ import { getConfigNumber } from '@/lib/config'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { name, email, password, projectName } = body
+    const { name, email, password } = body
 
     // Validate required fields
     if (!name || !email || !password) {
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
     const defaultQuota = await getConfigNumber('DEFAULT_MONTHLY_QUOTA')
     const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
 
-    // Create user with entrepreneur profile, quota, and milestone progress in a transaction
+    // Create user with entrepreneur profile and quota (NO milestones — created with project)
     const result = await db.$transaction(async (tx) => {
       // Create user
       const user = await tx.user.create({
@@ -57,11 +58,10 @@ export async function POST(request: NextRequest) {
         },
       })
 
-      // Create entrepreneur profile
+      // Create entrepreneur profile (empty — no project data here)
       const profile = await tx.entrepreneurProfile.create({
         data: {
           userId: user.id,
-          projectName: projectName || null,
         },
       })
 
@@ -75,60 +75,6 @@ export async function POST(request: NextRequest) {
           isExempted: false,
         },
       })
-
-      // Create milestone progress (first UNLOCKED, rest LOCKED)
-      const milestoneDefaults = await tx.milestoneDefault.findMany({
-        where: { isActive: true },
-        orderBy: { sortOrder: 'asc' },
-      })
-
-      for (let i = 0; i < milestoneDefaults.length; i++) {
-        await tx.milestoneProgress.create({
-          data: {
-            entrepreneurId: profile.id,
-            milestoneDefaultId: milestoneDefaults[i].id,
-            status: i === 0 ? 'IN_PROGRESS' : 'LOCKED',
-            startedAt: i === 0 ? new Date() : null,
-          },
-        })
-      }
-
-      // Find a consultant for the first milestone specialty and create chat room
-      if (milestoneDefaults.length > 0) {
-        const firstMilestone = milestoneDefaults[0]
-        const assignedConsultant = await tx.consultantProfile.findFirst({
-          where: {
-            specialtyId: firstMilestone.specialtyId,
-            isActive: true,
-            user: { isActive: true },
-          },
-          include: { user: true },
-        })
-
-        if (assignedConsultant) {
-          const chatRoom = await tx.chatRoom.create({
-            data: {
-              name: `${name} - ${assignedConsultant.user?.name || 'Consultant'}: ${firstMilestone.titleEn}`,
-              type: 'DIRECT',
-              members: {
-                create: [
-                  { userId: user.id, role: 'member' },
-                  { userId: assignedConsultant.userId, role: 'member' },
-                ],
-              },
-            },
-          })
-
-          // Send welcome message from consultant
-          await tx.chatMessage.create({
-            data: {
-              chatRoomId: chatRoom.id,
-              senderId: assignedConsultant.userId,
-              content: `Welcome ${name}! I am your consultant for the "${firstMilestone.titleEn}" milestone. Feel free to reach out with any questions.`,
-            },
-          })
-        }
-      }
 
       return { user, profile }
     })

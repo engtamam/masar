@@ -145,7 +145,7 @@ model MilestoneDefault {
 
 model MilestoneProgress {
   id                 String          @id @default(cuid())
-  entrepreneurId     String
+  projectId          String
   milestoneDefaultId String
   status             MilestoneStatus @default(LOCKED)
   startedAt          DateTime?
@@ -155,15 +155,15 @@ model MilestoneProgress {
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
 
-  entrepreneur     EntrepreneurProfile @relation(fields: [entrepreneurId], references: [id], onDelete: Cascade)
-  milestoneDefault MilestoneDefault    @relation(fields: [milestoneDefaultId], references: [id])
+  project           Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  milestoneDefault  MilestoneDefault    @relation(fields: [milestoneDefaultId], references: [id])
 
   // Relations
   approvals MilestoneApproval[]
   files     UploadedFile[]
   bookings  Booking[]
 
-  @@unique([entrepreneurId, milestoneDefaultId])
+  @@unique([projectId, milestoneDefaultId])
   @@map("milestone_progress")
 }
 
@@ -196,6 +196,48 @@ enum ApprovalStatus {
 }
 
 // ============================================================================
+// PROJECT SYSTEM (Multi-project support for entrepreneurs)
+// ============================================================================
+
+enum ProjectStage {
+  IDEA          // فكرة
+  PROTOTYPE     // نموذج أولي
+  MVP           // MVP
+  OPERATING     // تشغيل
+  SCALING       // توسع
+}
+
+enum ProjectStatus {
+  NOT_STARTED   // ما كمل الاستقبال
+  ACTIVE        // جاهز ويعمل
+  PAUSED        // متوقف مؤقتاً
+  COMPLETED     // خلص كل المراحل
+  ARCHIVED      // مؤرشف
+}
+
+model Project {
+  id                 String        @id @default(cuid())
+  entrepreneurId     String        // FK → EntrepreneurProfile
+  name               String        // اسم المشروع/الفكرة
+  description        String?       // وصف مختصر
+  industry           String?       // الصناعة (قائمة منسدلة)
+  stage              ProjectStage  @default(IDEA) // المرحلة الحالية
+  status             ProjectStatus @default(NOT_STARTED) // NOT_STARTED → ACTIVE بعد Onboarding
+  onboardingCompleted Boolean     @default(false)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  entrepreneur       EntrepreneurProfile @relation(fields: [entrepreneurId], references: [id], onDelete: Cascade)
+
+  // Relations
+  milestoneProgress  MilestoneProgress[]
+  bookings           Booking[]
+  files              UploadedFile[]      @relation("ProjectFiles")
+
+  @@map("projects")
+}
+
+// ============================================================================
 // BOOKING / SCHEDULING SYSTEM
 // ============================================================================
 
@@ -220,7 +262,7 @@ model ConsultantAvailability {
 model Booking {
   id                  String        @id @default(cuid())
   consultantId        String
-  entrepreneurId      String
+  projectId           String
   milestoneProgressId String?
   date                String        // YYYY-MM-DD
   startTime           String        // HH:mm
@@ -235,7 +277,7 @@ model Booking {
   updatedAt           DateTime      @updatedAt
 
   consultant        ConsultantProfile   @relation("ConsultantBookings", fields: [consultantId], references: [id])
-  entrepreneur      EntrepreneurProfile @relation("EntrepreneurBookings", fields: [entrepreneurId], references: [id], onDelete: Cascade)
+  project           Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
   milestoneProgress MilestoneProgress?  @relation(fields: [milestoneProgressId], references: [id])
 
   @@map("bookings")
@@ -274,22 +316,16 @@ model Quota {
 // ============================================================================
 
 model EntrepreneurProfile {
-  id          String  @id @default(cuid())
-  userId      String  @unique
-  projectName String?
-  projectDesc String?
-  industry    String?
-  stage       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String  @id @default(cuid())
+  userId    String  @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Relations
-  milestoneProgress MilestoneProgress[]
-  bookings          Booking[]           @relation("EntrepreneurBookings")
-  quota             Quota?
-  uploadedFiles     UploadedFile[]      @relation("EntrepreneurFiles")
+  projects Project[]
+  quota    Quota?
 
   @@map("entrepreneur_profiles")
 }
@@ -353,7 +389,7 @@ model ChatMessage {
 model UploadedFile {
   id                  String  @id @default(cuid())
   milestoneProgressId String?
-  entrepreneurId      String?
+  projectId           String?
   uploadedBy          String
   fileName            String
   originalName        String
@@ -364,9 +400,9 @@ model UploadedFile {
   encryptionKeyRef    String? // Reference to encryption key (never store key itself)
   createdAt           DateTime @default(now())
 
-  milestoneProgress MilestoneProgress?   @relation(fields: [milestoneProgressId], references: [id], onDelete: Cascade)
-  entrepreneur      EntrepreneurProfile? @relation("EntrepreneurFiles", fields: [entrepreneurId], references: [id], onDelete: Cascade)
-  uploader          User                 @relation("UploadedBy", fields: [uploadedBy], references: [id], onDelete: Cascade)
+  milestoneProgress MilestoneProgress? @relation(fields: [milestoneProgressId], references: [id], onDelete: Cascade)
+  project           Project?           @relation("ProjectFiles", fields: [projectId], references: [id], onDelete: Cascade)
+  uploader          User               @relation("UploadedBy", fields: [uploadedBy], references: [id], onDelete: Cascade)
 
   @@map("uploaded_files")
 }

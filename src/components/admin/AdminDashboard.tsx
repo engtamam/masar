@@ -222,7 +222,11 @@ interface ReportsData {
     status: string;
     createdAt: string;
     consultant: { user: { name: string } };
-    entrepreneur: { user: { name: string } };
+    project?: {
+      name?: string;
+      entrepreneur?: { user: { name: string } };
+    };
+    entrepreneur?: { user: { name: string } };
   }[];
   chat: {
     totalRooms: number;
@@ -598,11 +602,11 @@ export function AdminOverview() {
                     className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
                   >
                     <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-xs font-bold text-emerald-700">
-                      {getInitials(booking.entrepreneur.user.name)}
+                      {getInitials(booking.project?.entrepreneur?.user?.name || booking.project?.name || '؟')}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">
-                        {booking.entrepreneur.user.name}
+                        {booking.project?.entrepreneur?.user?.name || booking.project?.name || 'رائد أعمال'}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         جلسة مع {booking.consultant.user.name} · {formatDateShort(booking.createdAt)}

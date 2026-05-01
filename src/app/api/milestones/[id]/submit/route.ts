@@ -20,7 +20,7 @@ export async function POST(
 
     const { id } = await params
     const body = await request.json()
-    const { notes } = body
+    const { notes, projectId } = body
 
     // Get entrepreneur profile
     const profile = await db.entrepreneurProfile.findUnique({
@@ -31,12 +31,23 @@ export async function POST(
       return createErrorResponse('NOT_FOUND')
     }
 
+    // Build where clause — if projectId provided, use it; otherwise find by ownership
+    let whereClause: Record<string, unknown> = { id }
+    
+    if (projectId) {
+      // Verify project ownership
+      const project = await db.project.findFirst({
+        where: { id: projectId, entrepreneurId: profile.id },
+      })
+      if (!project) {
+        return createErrorResponse('NOT_FOUND')
+      }
+      whereClause = { id, projectId: project.id }
+    }
+
     // Find the milestone progress
     const progress = await db.milestoneProgress.findFirst({
-      where: {
-        id,
-        entrepreneurId: profile.id,
-      },
+      where: whereClause,
       include: {
         milestoneDefault: {
           include: {
@@ -47,11 +58,23 @@ export async function POST(
             },
           },
         },
+        project: {
+          include: {
+            entrepreneur: {
+              include: { user: true },
+            },
+          },
+        },
       },
     })
 
     if (!progress) {
       return createErrorResponse('NOT_FOUND')
+    }
+
+    // Verify ownership through project
+    if (progress.project.entrepreneurId !== profile.id) {
+      return createErrorResponse('INSUFFICIENT_PERMISSIONS')
     }
 
     if (progress.status !== 'IN_PROGRESS') {

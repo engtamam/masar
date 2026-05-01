@@ -26,7 +26,13 @@ export async function PATCH(
       where: { id },
       include: {
         consultant: { include: { user: true } },
-        entrepreneur: { include: { user: true } },
+        project: {
+          include: {
+            entrepreneur: {
+              include: { user: true },
+            },
+          },
+        },
       },
     })
 
@@ -42,7 +48,8 @@ export async function PATCH(
       ? await db.consultantProfile.findUnique({ where: { userId: user.userId } })
       : null
 
-    const isEntrepreneur = entrepreneurProfile && booking.entrepreneurId === entrepreneurProfile.id
+    // Check entrepreneur access through project ownership
+    const isEntrepreneur = entrepreneurProfile && booking.project?.entrepreneurId === entrepreneurProfile.id
     const isConsultant = consultantProfile && booking.consultantId === consultantProfile.id
     const isAdmin = user.role === 'ADMIN'
 
@@ -63,7 +70,9 @@ export async function PATCH(
       updateData.cancellationReason = cancellationReason || null
 
       // Decrement quota usage since booking is cancelled
-      await decrementQuotaUsage(booking.entrepreneurId)
+      if (booking.project?.entrepreneurId) {
+        await decrementQuotaUsage(booking.project.entrepreneurId)
+      }
     } else if (status === 'IN_PROGRESS') {
       // Start meeting - only allowed if within time window
       if (booking.status !== 'CONFIRMED') {
@@ -119,32 +128,38 @@ export async function PATCH(
             specialty: true,
           },
         },
-        entrepreneur: {
+        project: {
           include: {
-            user: { select: { id: true, name: true, avatarUrl: true } },
+            entrepreneur: {
+              include: {
+                user: { select: { id: true, name: true, avatarUrl: true } },
+              },
+            },
           },
         },
       },
     })
 
     // Notify the other party about status change
-    const notifyUserId = isEntrepreneur || isAdmin ? booking.consultant.userId : booking.entrepreneur.user.id
-    const statusMessages: Record<string, string> = {
-      CANCELLED: `حجز ${booking.date} تم إلغاؤه. ${cancellationReason || ''}`,
-      IN_PROGRESS: `اجتماع ${booking.date} بدأ الآن.`,
-      COMPLETED: `اجتماع ${booking.date} اكتمل.`,
-      NO_SHOW: `اجتماع ${booking.date} تم تسجيله كحضور متأخر.`,
-    }
+    const notifyUserId = isEntrepreneur || isAdmin ? booking.consultant.userId : booking.project?.entrepreneur?.user?.id
+    if (notifyUserId) {
+      const statusMessages: Record<string, string> = {
+        CANCELLED: `حجز ${booking.date} تم إلغاؤه. ${cancellationReason || ''}`,
+        IN_PROGRESS: `اجتماع ${booking.date} بدأ الآن.`,
+        COMPLETED: `اجتماع ${booking.date} اكتمل.`,
+        NO_SHOW: `اجتماع ${booking.date} تم تسجيله كحضور متأخر.`,
+      }
 
-    await db.notification.create({
-      data: {
-        userId: notifyUserId,
-        title: 'تحديث الحجز',
-        message: statusMessages[status] || `تم تحديث حالة الحجز إلى ${status}`,
-        type: status === 'COMPLETED' ? 'success' : status === 'CANCELLED' ? 'warning' : 'info',
-        link: '/bookings',
-      },
-    })
+      await db.notification.create({
+        data: {
+          userId: notifyUserId,
+          title: 'تحديث الحجز',
+          message: statusMessages[status] || `تم تحديث حالة الحجز إلى ${status}`,
+          type: status === 'COMPLETED' ? 'success' : status === 'CANCELLED' ? 'warning' : 'info',
+          link: '/bookings',
+        },
+      })
+    }
 
     // Add meetingUrl to response
     const updatedWithUrl = {
@@ -175,7 +190,13 @@ export async function DELETE(
       where: { id },
       include: {
         consultant: { include: { user: true } },
-        entrepreneur: { include: { user: true } },
+        project: {
+          include: {
+            entrepreneur: {
+              include: { user: true },
+            },
+          },
+        },
       },
     })
 
@@ -199,7 +220,7 @@ export async function DELETE(
       ? await db.consultantProfile.findUnique({ where: { userId: user.userId } })
       : null
 
-    const isEntrepreneur = entrepreneurProfile && booking.entrepreneurId === entrepreneurProfile.id
+    const isEntrepreneur = entrepreneurProfile && booking.project?.entrepreneurId === entrepreneurProfile.id
     const isConsultant = consultantProfile && booking.consultantId === consultantProfile.id
     const isAdmin = user.role === 'ADMIN'
 
@@ -217,19 +238,23 @@ export async function DELETE(
     })
 
     // Decrement quota usage
-    await decrementQuotaUsage(booking.entrepreneurId)
+    if (booking.project?.entrepreneurId) {
+      await decrementQuotaUsage(booking.project.entrepreneurId)
+    }
 
     // Notify other party
-    const notifyUserId = isEntrepreneur || isAdmin ? booking.consultant.userId : booking.entrepreneur.user.id
-    await db.notification.create({
-      data: {
-        userId: notifyUserId,
-        title: 'إلغاء الحجز',
-        message: `حجز ${booking.date} من ${booking.startTime} إلى ${booking.endTime} تم إلغاؤه.`,
-        type: 'warning',
-        link: '/bookings',
-      },
-    })
+    const notifyUserId = isEntrepreneur || isAdmin ? booking.consultant.userId : booking.project?.entrepreneur?.user?.id
+    if (notifyUserId) {
+      await db.notification.create({
+        data: {
+          userId: notifyUserId,
+          title: 'إلغاء الحجز',
+          message: `حجز ${booking.date} من ${booking.startTime} إلى ${booking.endTime} تم إلغاؤه.`,
+          type: 'warning',
+          link: '/bookings',
+        },
+      })
+    }
 
     return createSuccessResponse(updated)
   } catch (error) {

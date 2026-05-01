@@ -1,5 +1,5 @@
 // Global application state using Zustand
-// Manages auth state, navigation, and UI state
+// Manages auth state, navigation, project selection, and UI state
 // Initializes from localStorage on the client side
 
 import { create } from 'zustand';
@@ -13,6 +13,7 @@ export type AppView =
   | 'forgot-password'
   | 'reset-password'
   | 'verify-email'
+  | 'entrepreneur-onboarding'
   | 'entrepreneur-dashboard'
   | 'entrepreneur-milestones'
   | 'entrepreneur-bookings'
@@ -48,6 +49,23 @@ export interface User {
   unreadNotifications?: number;
 }
 
+// ========== Project Interface ==========
+
+export interface Project {
+  id: string;
+  name: string;
+  description?: string | null;
+  industry?: string | null;
+  stage: string;
+  status: string;
+  onboardingCompleted: boolean;
+  milestonesTotal?: number;
+  milestonesCompleted?: number;
+  progress?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ========== Store Interface ==========
 
 interface AppState {
@@ -62,6 +80,12 @@ interface AppState {
   // Navigation state
   currentView: AppView;
   setCurrentView: (view: AppView) => void;
+
+  // Project state
+  currentProjectId: string | null;
+  setCurrentProjectId: (id: string | null) => void;
+  projects: Project[];
+  setProjects: (projects: Project[]) => void;
 
   // Chat state
   activeChatRoomId: string | null;
@@ -82,6 +106,7 @@ interface AppState {
 const TOKEN_KEY = 'auth_token';
 const USER_KEY = 'auth_user';
 const VIEW_KEY = 'app_view';
+const PROJECT_KEY = 'current_project_id';
 
 // ========== Helper: Safe localStorage reads ==========
 
@@ -109,6 +134,15 @@ function getStoredView(): AppView | null {
   if (typeof window === 'undefined') return null;
   try {
     return localStorage.getItem(VIEW_KEY) as AppView | null;
+  } catch {
+    return null;
+  }
+}
+
+function getStoredProjectId(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return localStorage.getItem(PROJECT_KEY);
   } catch {
     return null;
   }
@@ -164,11 +198,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   logout: () => {
-    set({ user: null, token: null, currentView: 'landing', activeChatRoomId: null });
+    set({ user: null, token: null, currentView: 'landing', activeChatRoomId: null, currentProjectId: null, projects: [] });
     if (typeof window !== 'undefined') {
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(USER_KEY);
       localStorage.removeItem(VIEW_KEY);
+      localStorage.removeItem(PROJECT_KEY);
     }
   },
 
@@ -180,6 +215,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const token = getStoredToken();
     const user = getStoredUser();
     const storedView = getStoredView();
+    const storedProjectId = getStoredProjectId();
 
     // Determine view: if user is stored and view is valid, use it; otherwise derive default
     let currentView: AppView = 'landing';
@@ -191,7 +227,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
     }
 
-    set({ token, user, currentView });
+    set({ token, user, currentView, currentProjectId: storedProjectId });
   },
 
   // Navigation state
@@ -207,6 +243,23 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
     }
   },
+
+  // Project state
+  currentProjectId: null,
+
+  setCurrentProjectId: (currentProjectId) => {
+    set({ currentProjectId });
+    if (typeof window !== 'undefined') {
+      if (currentProjectId) {
+        localStorage.setItem(PROJECT_KEY, currentProjectId);
+      } else {
+        localStorage.removeItem(PROJECT_KEY);
+      }
+    }
+  },
+
+  projects: [],
+  setProjects: (projects) => set({ projects }),
 
   // Chat state
   activeChatRoomId: null,

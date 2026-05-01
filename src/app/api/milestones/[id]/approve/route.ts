@@ -20,9 +20,9 @@ export async function POST(
 
     const { id } = await params
     const body = await request.json()
-    const { entrepreneurId, comment, status: approvalStatus } = body
+    const { projectId, comment, status: approvalStatus } = body
 
-    if (!entrepreneurId) {
+    if (!projectId) {
       return createErrorResponse('INVALID_INPUT')
     }
 
@@ -30,12 +30,16 @@ export async function POST(
     const progress = await db.milestoneProgress.findFirst({
       where: {
         id,
-        entrepreneurId,
+        projectId,
       },
       include: {
         milestoneDefault: true,
-        entrepreneur: {
-          include: { user: true },
+        project: {
+          include: {
+            entrepreneur: {
+              include: { user: true },
+            },
+          },
         },
       },
     })
@@ -85,7 +89,7 @@ export async function POST(
           },
         })
 
-        // Unlock the next milestone
+        // Unlock the next milestone in the same project
         const nextMilestone = await tx.milestoneDefault.findFirst({
           where: {
             sortOrder: progress.milestoneDefault.sortOrder + 1,
@@ -96,8 +100,8 @@ export async function POST(
         if (nextMilestone) {
           await tx.milestoneProgress.upsert({
             where: {
-              entrepreneurId_milestoneDefaultId: {
-                entrepreneurId,
+              projectId_milestoneDefaultId: {
+                projectId,
                 milestoneDefaultId: nextMilestone.id,
               },
             },
@@ -106,7 +110,7 @@ export async function POST(
               startedAt: new Date(),
             },
             create: {
-              entrepreneurId,
+              projectId,
               milestoneDefaultId: nextMilestone.id,
               status: 'IN_PROGRESS',
               startedAt: new Date(),
@@ -114,10 +118,25 @@ export async function POST(
           })
         }
 
+        // Check if all milestones are approved — update project status
+        const totalMilestones = await tx.milestoneProgress.count({
+          where: { projectId },
+        })
+        const approvedMilestones = await tx.milestoneProgress.count({
+          where: { projectId, status: 'APPROVED' },
+        })
+
+        if (totalMilestones > 0 && approvedMilestones === totalMilestones) {
+          await tx.project.update({
+            where: { id: projectId },
+            data: { status: 'COMPLETED' },
+          })
+        }
+
         // Create notification for entrepreneur
         await tx.notification.create({
           data: {
-            userId: progress.entrepreneur.userId,
+            userId: progress.project.entrepreneur.userId,
             title: 'Milestone Approved',
             message: `Your milestone "${progress.milestoneDefault.titleEn}" has been approved!${nextMilestone ? ` The next milestone "${nextMilestone.titleEn}" is now unlocked.` : ' Congratulations, you have completed all milestones!'}`,
             type: 'success',
@@ -136,7 +155,7 @@ export async function POST(
         // Create notification for entrepreneur
         await tx.notification.create({
           data: {
-            userId: progress.entrepreneur.userId,
+            userId: progress.project.entrepreneur.userId,
             title: 'Milestone Rejected',
             message: `Your milestone "${progress.milestoneDefault.titleEn}" has been rejected. ${comment || 'Please review and resubmit.'}`,
             type: 'warning',

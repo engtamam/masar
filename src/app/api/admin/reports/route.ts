@@ -110,9 +110,13 @@ export async function GET(request: NextRequest) {
             user: { select: { name: true, email: true } },
           },
         },
-        entrepreneur: {
+        project: {
           include: {
-            user: { select: { name: true, email: true } },
+            entrepreneur: {
+              include: {
+                user: { select: { name: true, email: true } },
+              },
+            },
           },
         },
       },

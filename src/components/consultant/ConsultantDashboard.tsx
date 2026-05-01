@@ -141,6 +141,14 @@ interface UploadedFileInfo {
   };
 }
 
+interface ProjectInfo {
+  id: string;
+  name: string;
+  industry?: string;
+  stage?: string;
+  entrepreneur?: EntrepreneurProfile;
+}
+
 interface MilestoneProgressItem {
   id: string;
   milestoneDefaultId: string;
@@ -152,7 +160,7 @@ interface MilestoneProgressItem {
   milestoneDefault: MilestoneDefault;
   approvals: MilestoneApproval[];
   files: UploadedFileInfo[];
-  entrepreneur?: EntrepreneurProfile;
+  project?: ProjectInfo;
   entrepreneurId?: string;
 }
 
@@ -513,11 +521,11 @@ export function ConsultantOverview() {
     });
 
   const handleQuickApprove = async (mp: MilestoneProgressItem) => {
-    if (!mp.entrepreneurId) return;
+    if (!mp.project?.id) return;
     setActionLoading(mp.id);
     try {
       const res = await milestonesApi.approveMilestone(mp.id, {
-        entrepreneurId: mp.entrepreneurId,
+        projectId: mp.project.id,
         status: 'APPROVED',
       });
       if (res.success) {
@@ -534,11 +542,11 @@ export function ConsultantOverview() {
   };
 
   const handleQuickReject = async (mp: MilestoneProgressItem) => {
-    if (!mp.entrepreneurId) return;
+    if (!mp.project?.id) return;
     setActionLoading(mp.id);
     try {
       const res = await milestonesApi.approveMilestone(mp.id, {
-        entrepreneurId: mp.entrepreneurId,
+        projectId: mp.project.id,
         status: 'REJECTED',
         comment: 'مرفوض من المستشار',
       });
@@ -662,14 +670,14 @@ export function ConsultantOverview() {
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     <Avatar className="w-9 h-9">
                       <AvatarFallback className="bg-amber-100 text-amber-700 text-xs">
-                        {mp.entrepreneur?.user
-                          ? getInitials(mp.entrepreneur.user.name)
+                        {mp.project?.entrepreneur?.user
+                          ? getInitials(mp.project.entrepreneur.user.name)
                           : '؟'}
                       </AvatarFallback>
                     </Avatar>
                     <div className="min-w-0">
                       <p className="text-sm font-medium truncate">
-                        {mp.entrepreneur?.user?.name || 'رائد أعمال'}
+                        {mp.project?.entrepreneur?.user?.name || mp.project?.name || 'رائد أعمال'}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {mp.milestoneDefault.titleAr}
@@ -1089,14 +1097,14 @@ export function ConsultantSchedule() {
                           <div className="flex items-center gap-3 flex-1 min-w-0">
                             <Avatar className="w-11 h-11">
                               <AvatarFallback className="bg-emerald-100 text-emerald-700">
-                                {booking.entrepreneur?.user
-                                  ? getInitials(booking.entrepreneur.user.name)
+                                {booking.project?.entrepreneur?.user
+                                  ? getInitials(booking.project.entrepreneur.user.name)
                                   : '؟'}
                               </AvatarFallback>
                             </Avatar>
                             <div className="min-w-0">
                               <p className="font-semibold text-gray-900 truncate">
-                                {booking.entrepreneur?.user?.name || 'رائد أعمال'}
+                                {booking.project?.entrepreneur?.user?.name || booking.project?.name || 'رائد أعمال'}
                               </p>
                               <p className="text-sm text-muted-foreground">
                                 {formatDate(booking.date)} · {formatTime(booking.startTime)} -{' '}
@@ -1205,10 +1213,10 @@ export function ConsultantEntrepreneurs() {
   const entrepreneurMap = new Map<string, EntrepreneurProfile & { milestones: MilestoneProgressItem[] }>();
 
   for (const mp of progress) {
-    const entId = mp.entrepreneurId || mp.entrepreneur?.id || 'unknown';
+    const entId = mp.project?.entrepreneur?.id || mp.project?.id || 'unknown';
     if (!entrepreneurMap.has(entId)) {
       entrepreneurMap.set(entId, {
-        ...(mp.entrepreneur || { id: entId, user: { id: entId, name: 'رائد أعمال', email: '' } }),
+        ...(mp.project?.entrepreneur || { id: entId, user: { id: entId, name: mp.project?.name || 'رائد أعمال', email: '' } }),
         milestones: [],
       });
     }
@@ -1218,11 +1226,11 @@ export function ConsultantEntrepreneurs() {
   const entrepreneurs = Array.from(entrepreneurMap.values());
 
   const handleApprove = async (mp: MilestoneProgressItem) => {
-    if (!mp.entrepreneurId) return;
+    if (!mp.project?.id) return;
     setActionLoading(mp.id);
     try {
       const res = await milestonesApi.approveMilestone(mp.id, {
-        entrepreneurId: mp.entrepreneurId,
+        projectId: mp.project.id,
         status: 'APPROVED',
       });
       if (res.success) {
@@ -1239,11 +1247,11 @@ export function ConsultantEntrepreneurs() {
   };
 
   const handleReject = async () => {
-    if (!rejectTarget || !rejectTarget.entrepreneurId) return;
+    if (!rejectTarget || !rejectTarget.project?.id) return;
     setActionLoading(rejectTarget.id);
     try {
       const res = await milestonesApi.approveMilestone(rejectTarget.id, {
-        entrepreneurId: rejectTarget.entrepreneurId,
+        projectId: rejectTarget.project.id,
         status: 'REJECTED',
         comment: rejectComment || undefined,
       });

@@ -1,5 +1,6 @@
 // GET /api/milestones
 // Get milestones with progress for the current user
+// Now requires projectId for entrepreneurs
 
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
@@ -11,6 +12,9 @@ export async function GET(request: NextRequest) {
     if (!user) {
       return createErrorResponse('AUTH_REQUIRED')
     }
+
+    const url = new URL(request.url)
+    const projectId = url.searchParams.get('projectId')
 
     // Get all active milestone defaults
     const milestoneDefaults = await db.milestoneDefault.findMany({
@@ -29,7 +33,7 @@ export async function GET(request: NextRequest) {
     })
 
     if (user.role === 'ENTREPRENEUR') {
-      // Get entrepreneur's milestone progress
+      // Get entrepreneur's profile
       const profile = await db.entrepreneurProfile.findUnique({
         where: { userId: user.userId },
       })
@@ -38,43 +42,100 @@ export async function GET(request: NextRequest) {
         return createErrorResponse('NOT_FOUND')
       }
 
-      const progress = await db.milestoneProgress.findMany({
+      // If projectId is provided, get milestones for that project
+      if (projectId) {
+        // Verify project ownership
+        const project = await db.project.findFirst({
+          where: { id: projectId, entrepreneurId: profile.id },
+        })
+        if (!project) {
+          return createErrorResponse('NOT_FOUND')
+        }
+
+        const progress = await db.milestoneProgress.findMany({
+          where: { projectId: project.id },
+          include: {
+            milestoneDefault: {
+              include: {
+                specialty: true,
+                consultant: {
+                  include: {
+                    user: {
+                      select: { id: true, name: true, avatarUrl: true },
+                    },
+                  },
+                },
+              },
+            },
+            approvals: {
+              include: {
+                consultant: {
+                  include: {
+                    user: {
+                      select: { id: true, name: true },
+                    },
+                  },
+                },
+              },
+              orderBy: { createdAt: 'desc' },
+            },
+            files: true,
+          },
+          orderBy: {
+            milestoneDefault: { sortOrder: 'asc' },
+          },
+        })
+
+        return createSuccessResponse({
+          milestones: milestoneDefaults,
+          progress,
+          project,
+        })
+      }
+
+      // No projectId — return all projects with their milestones
+      const projects = await db.project.findMany({
         where: { entrepreneurId: profile.id },
         include: {
-          milestoneDefault: {
+          milestoneProgress: {
             include: {
-              specialty: true,
-              consultant: {
+              milestoneDefault: {
                 include: {
-                  user: {
-                    select: { id: true, name: true, avatarUrl: true },
+                  specialty: true,
+                  consultant: {
+                    include: {
+                      user: {
+                        select: { id: true, name: true, avatarUrl: true },
+                      },
+                    },
                   },
                 },
               },
-            },
-          },
-          approvals: {
-            include: {
-              consultant: {
+              approvals: {
                 include: {
-                  user: {
-                    select: { id: true, name: true },
+                  consultant: {
+                    include: {
+                      user: {
+                        select: { id: true, name: true },
+                      },
+                    },
                   },
                 },
+                orderBy: { createdAt: 'desc' },
               },
+              files: true,
             },
-            orderBy: { createdAt: 'desc' },
+            orderBy: {
+              milestoneDefault: { sortOrder: 'asc' },
+            },
           },
-          files: true,
         },
-        orderBy: {
-          milestoneDefault: { sortOrder: 'asc' },
-        },
+        orderBy: { createdAt: 'desc' },
       })
 
       return createSuccessResponse({
         milestones: milestoneDefaults,
-        progress,
+        projects,
       })
     }
 
@@ -105,10 +166,14 @@ export async function GET(request: NextRequest) {
               specialty: true,
             },
           },
-          entrepreneur: {
+          project: {
             include: {
-              user: {
-                select: { id: true, name: true, email: true, avatarUrl: true },
+              entrepreneur: {
+                include: {
+                  user: {
+                    select: { id: true, name: true, email: true, avatarUrl: true },
+                  },
+                },
               },
             },
           },
@@ -130,10 +195,14 @@ export async function GET(request: NextRequest) {
               specialty: true,
             },
           },
-          entrepreneur: {
+          project: {
             include: {
-              user: {
-                select: { id: true, name: true, email: true, avatarUrl: true },
+              entrepreneur: {
+                include: {
+                  user: {
+                    select: { id: true, name: true, email: true, avatarUrl: true },
+                  },
+                },
               },
             },
           },
@@ -169,10 +238,14 @@ export async function GET(request: NextRequest) {
               },
             },
           },
-          entrepreneur: {
+          project: {
             include: {
-              user: {
-                select: { id: true, name: true, email: true },
+              entrepreneur: {
+                include: {
+                  user: {
+                    select: { id: true, name: true, email: true },
+                  },
+                },
               },
             },
           },

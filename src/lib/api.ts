@@ -208,22 +208,70 @@ export const authApi = {
   me: () => request<MeResponse>('/auth/me'),
 };
 
+// ========== Projects API ==========
+
+export const projectsApi = {
+  /**
+   * Get all projects for the current user
+   */
+  getProjects: () => request<unknown[]>('/projects'),
+
+  /**
+   * Get a single project by ID with full details
+   */
+  getProject: (id: string) => request<unknown>(`/projects/${id}`),
+
+  /**
+   * Create a new project (completes onboarding)
+   */
+  createProject: (data: {
+    name: string;
+    industry: string;
+    description?: string;
+    stage: string;
+  }) =>
+    request<unknown>('/projects', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  /**
+   * Update a project
+   */
+  updateProject: (
+    id: string,
+    data: {
+      name?: string;
+      description?: string;
+      industry?: string;
+      stage?: string;
+      status?: string;
+    }
+  ) =>
+    request<unknown>(`/projects/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+};
+
 // ========== Milestones API ==========
 
 export const milestonesApi = {
   /**
    * Get milestones with progress for the current user
    * Response varies by role (entrepreneur, consultant, admin)
+   * For entrepreneurs, pass projectId to get milestones for a specific project
    */
-  getMyMilestones: () => request<unknown>('/milestones'),
+  getMyMilestones: (projectId?: string) =>
+    request<unknown>(`/milestones${buildQuery({ projectId })}`),
 
   /**
    * Entrepreneur submits a milestone for review
    */
-  submitMilestone: (id: string, notes?: string) =>
+  submitMilestone: (id: string, data: { notes?: string; projectId: string }) =>
     request<unknown>(`/milestones/${id}/submit`, {
       method: 'POST',
-      body: JSON.stringify({ notes }),
+      body: JSON.stringify(data),
     }),
 
   /**
@@ -232,7 +280,7 @@ export const milestonesApi = {
   approveMilestone: (
     id: string,
     data: {
-      entrepreneurId: string;
+      projectId: string;
       comment?: string;
       status: 'APPROVED' | 'REJECTED';
     }
@@ -259,9 +307,9 @@ interface BookingsResponse {
 
 export const bookingsApi = {
   /**
-   * Get bookings filtered by role and optional status
+   * Get bookings filtered by role and optional status/projectId
    */
-  getBookings: (params?: { status?: string; page?: number }) =>
+  getBookings: (params?: { status?: string; page?: number; projectId?: string }) =>
     request<BookingsResponse>(`/bookings${buildQuery(params as Record<string, string | number | undefined>)}`),
 
   /**
@@ -269,6 +317,7 @@ export const bookingsApi = {
    */
   createBooking: (data: {
     consultantId: string;
+    projectId: string;
     date: string;
     startTime: string;
     endTime: string;
@@ -373,24 +422,27 @@ export const chatApi = {
 
 export const filesApi = {
   /**
-   * Upload a file (optionally linked to a milestone and encrypted)
+   * Upload a file (optionally linked to a milestone/project and encrypted)
    */
-  uploadFile: (file: File, milestoneProgressId?: string, encrypt?: boolean) => {
+  uploadFile: (file: File, options?: { milestoneProgressId?: string; projectId?: string; encrypt?: boolean }) => {
     const formData = new FormData();
     formData.append('file', file);
-    if (milestoneProgressId) {
-      formData.append('milestoneProgressId', milestoneProgressId);
+    if (options?.milestoneProgressId) {
+      formData.append('milestoneProgressId', options.milestoneProgressId);
     }
-    if (encrypt) {
+    if (options?.projectId) {
+      formData.append('projectId', options.projectId);
+    }
+    if (options?.encrypt) {
       formData.append('encrypt', 'true');
     }
     return uploadRequest<unknown>('/files', formData);
   },
 
   /**
-   * Get files list (optionally filtered by milestone progress)
+   * Get files list (optionally filtered by milestone progress or project)
    */
-  getFiles: (params?: { milestoneProgressId?: string }) =>
+  getFiles: (params?: { milestoneProgressId?: string; projectId?: string }) =>
     request<unknown[]>(`/files${buildQuery(params as Record<string, string | undefined>)}`),
 
   /**

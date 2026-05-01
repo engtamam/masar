@@ -192,22 +192,7 @@ export async function POST(request: NextRequest) {
           },
         })
 
-        // Create milestone progress
-        const milestoneDefaults = await tx.milestoneDefault.findMany({
-          where: { isActive: true },
-          orderBy: { sortOrder: 'asc' },
-        })
-
-        for (let i = 0; i < milestoneDefaults.length; i++) {
-          await tx.milestoneProgress.create({
-            data: {
-              entrepreneurId: profile.id,
-              milestoneDefaultId: milestoneDefaults[i].id,
-              status: i === 0 ? 'IN_PROGRESS' : 'LOCKED',
-              startedAt: i === 0 ? new Date() : null,
-            },
-          })
-        }
+        // No milestone progress created here — milestones are created when a project is created
       }
 
       return tx.user.findUnique({

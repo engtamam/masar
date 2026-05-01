@@ -35,13 +35,14 @@ import {
 import { toast } from 'sonner';
 
 import { useAppStore } from '@/lib/store';
-import type { AppView } from '@/lib/store';
+import type { AppView, Project } from '@/lib/store';
 import {
   milestonesApi,
   bookingsApi,
   chatApi,
   filesApi,
   notificationsApi,
+  projectsApi,
 } from '@/lib/api';
 
 import { Button } from '@/components/ui/button';
@@ -312,7 +313,23 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 export function EntrepreneurSidebar() {
-  const { currentView, setCurrentView, user, logout } = useAppStore();
+  const { currentView, setCurrentView, user, logout, currentProjectId, setCurrentProjectId, projects, setProjects } = useAppStore();
+
+  // Load projects on mount
+  useEffect(() => {
+    if (projects.length === 0) {
+      projectsApi.getProjects().then((res) => {
+        if (res.success && res.data) {
+          setProjects(res.data as Project[]);
+          // Set first project as current if none selected
+          const data = res.data as { id: string }[];
+          if (data.length > 0 && !currentProjectId) {
+            setCurrentProjectId(data[0].id);
+          }
+        }
+      });
+    }
+  }, []);
 
   return (
     <aside className="w-64 min-h-screen bg-gradient-to-b from-emerald-800 to-emerald-900 text-white flex flex-col shadow-xl">
@@ -326,6 +343,24 @@ export function EntrepreneurSidebar() {
           <p className="text-emerald-300 text-xs">منصة رواد الأعمال</p>
         </div>
       </div>
+
+      {/* Project Selector */}
+      {projects.length > 0 && (
+        <div className="px-3 pt-4 pb-2">
+          <label className="text-xs text-emerald-300 mb-1.5 block font-medium">المشروع النشط</label>
+          <select
+            value={currentProjectId || ''}
+            onChange={(e) => setCurrentProjectId(e.target.value)}
+            className="w-full bg-emerald-700/50 border border-emerald-600/50 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-400"
+          >
+            {projects.map((p) => (
+              <option key={p.id} value={p.id} className="bg-emerald-800">
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Navigation */}
       <nav className="flex-1 py-4 px-3 space-y-1">
@@ -399,7 +434,7 @@ export function EntrepreneurMainView() {
 // ========== 3. EntrepreneurOverview ==========
 
 export function EntrepreneurOverview() {
-  const { user } = useAppStore();
+  const { user, currentProjectId } = useAppStore();
   const [milestonesData, setMilestonesData] = useState<MilestonesResponse | null>(null);
   const [bookingsData, setBookingsData] = useState<BookingsResponse | null>(null);
   const [notificationsData, setNotificationsData] = useState<NotificationsResponse | null>(null);
@@ -410,8 +445,8 @@ export function EntrepreneurOverview() {
       setLoading(true);
       try {
         const [mileRes, bookRes, notifRes] = await Promise.all([
-          milestonesApi.getMyMilestones(),
-          bookingsApi.getBookings(),
+          milestonesApi.getMyMilestones(currentProjectId || undefined),
+          bookingsApi.getBookings({ projectId: currentProjectId || undefined }),
           notificationsApi.getNotifications(),
         ]);
 
@@ -627,7 +662,7 @@ export function EntrepreneurOverview() {
 // ========== 4. JourneyView (MOST IMPORTANT) ==========
 
 export function JourneyView() {
-  const { user } = useAppStore();
+  const { user, currentProjectId } = useAppStore();
   const [data, setData] = useState<MilestonesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -640,7 +675,7 @@ export function JourneyView() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await milestonesApi.getMyMilestones();
+      const res = await milestonesApi.getMyMilestones(currentProjectId || undefined);
       if (res.success && res.data) {
         setData(res.data as MilestonesResponse);
       }
@@ -676,7 +711,7 @@ export function JourneyView() {
   const handleSubmitMilestone = async (progressId: string) => {
     setSubmitting(true);
     try {
-      const res = await milestonesApi.submitMilestone(progressId, notes || undefined);
+      const res = await milestonesApi.submitMilestone(progressId, { notes: notes || undefined, projectId: currentProjectId! });
       if (res.success) {
         toast.success('تم تقديم المرحلة للمراجعة بنجاح');
         setNotes('');
@@ -696,7 +731,7 @@ export function JourneyView() {
     setUploadingFiles(true);
     try {
       for (let i = 0; i < files.length; i++) {
-        const res = await filesApi.uploadFile(files[i], progressId);
+        const res = await filesApi.uploadFile(files[i], { milestoneProgressId: progressId, projectId: currentProjectId || undefined });
         if (!res.success) {
           toast.error(`فشل رفع الملف: ${files[i].name}`);
         }
@@ -1069,7 +1104,7 @@ export function JourneyView() {
 // ========== 5. EntrepreneurBookings ==========
 
 export function EntrepreneurBookings() {
-  const { user } = useAppStore();
+  const { user, currentProjectId } = useAppStore();
   const [bookings, setBookings] = useState<BookingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
@@ -1079,7 +1114,7 @@ export function EntrepreneurBookings() {
   const loadBookings = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await bookingsApi.getBookings();
+      const res = await bookingsApi.getBookings({ projectId: currentProjectId || undefined });
       if (res.success && res.data) {
         const data = res.data as BookingsResponse;
         setBookings(data.bookings || []);
@@ -1543,7 +1578,7 @@ export function EntrepreneurChat() {
 // ========== 7. EntrepreneurFiles ==========
 
 export function EntrepreneurFiles() {
-  const { user } = useAppStore();
+  const { user, currentProjectId } = useAppStore();
   const [files, setFiles] = useState<UploadedFileInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -1555,9 +1590,12 @@ export function EntrepreneurFiles() {
   const loadFiles = useCallback(async () => {
     setLoading(true);
     try {
-      const params: { milestoneProgressId?: string } = {};
+      const params: { milestoneProgressId?: string; projectId?: string } = {};
       if (selectedMilestone) {
         params.milestoneProgressId = selectedMilestone;
+      }
+      if (currentProjectId) {
+        params.projectId = currentProjectId;
       }
       const res = await filesApi.getFiles(Object.keys(params).length > 0 ? params : undefined);
       if (res.success && res.data) {
@@ -1572,7 +1610,7 @@ export function EntrepreneurFiles() {
 
   const loadMilestones = useCallback(async () => {
     try {
-      const res = await milestonesApi.getMyMilestones();
+      const res = await milestonesApi.getMyMilestones(currentProjectId || undefined);
       if (res.success && res.data) {
         const data = res.data as MilestonesResponse;
         setMilestones(data.progress || []);
@@ -1597,7 +1635,7 @@ export function EntrepreneurFiles() {
       for (let i = 0; i < filesList.length; i++) {
         const res = await filesApi.uploadFile(
           filesList[i],
-          selectedMilestone || undefined
+          { milestoneProgressId: selectedMilestone || undefined, projectId: currentProjectId || undefined }
         );
         if (!res.success) {
           toast.error(`فشل رفع الملف: ${filesList[i].name}`);

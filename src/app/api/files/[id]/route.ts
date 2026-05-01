@@ -24,12 +24,22 @@ export async function GET(
       include: {
         milestoneProgress: {
           include: {
+            project: {
+              include: {
+                entrepreneur: {
+                  include: { user: { select: { id: true } } },
+                },
+              },
+            },
+          },
+        },
+        project: {
+          include: {
             entrepreneur: {
               include: { user: { select: { id: true } } },
             },
           },
         },
-        entrepreneur: true,
       },
     })
 
@@ -38,7 +48,7 @@ export async function GET(
     }
 
     // Verify access: admin, uploader, or the entrepreneur who owns the file
-    const isOwner = user.role === 'ENTREPRENEUR' && file.entrepreneur?.userId === user.userId
+    const isOwner = user.role === 'ENTREPRENEUR' && file.project?.entrepreneur?.userId === user.userId
     const isConsultantAssigned = user.role === 'CONSULTANT' && file.milestoneProgress
     const isAdmin = user.role === 'ADMIN'
     const isUploader = file.uploadedBy === user.userId

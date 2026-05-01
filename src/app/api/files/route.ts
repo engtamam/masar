@@ -1,5 +1,5 @@
 // POST /api/files - Upload file (with encryption for Data Room milestone)
-// GET /api/files - List files for milestone
+// GET /api/files - List files for project/milestone
 
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData()
     const file = formData.get('file') as File | null
     const milestoneProgressId = formData.get('milestoneProgressId') as string | null
+    const projectId = formData.get('projectId') as string | null
     const shouldEncrypt = formData.get('encrypt') as string | null
 
     if (!file) {
@@ -86,20 +87,11 @@ export async function POST(request: NextRequest) {
     ensureUploadDir()
     writeFileSync(filePath, fileBuffer)
 
-    // Get entrepreneur profile if applicable
-    let entrepreneurId: string | null = null
-    if (user.role === 'ENTREPRENEUR') {
-      const profile = await db.entrepreneurProfile.findUnique({
-        where: { userId: user.userId },
-      })
-      entrepreneurId = profile?.id || null
-    }
-
     // Create file record in database
     const uploadedFile = await db.uploadedFile.create({
       data: {
         milestoneProgressId: milestoneProgressId || null,
-        entrepreneurId,
+        projectId: projectId || null,
         uploadedBy: user.userId,
         fileName: uniqueName,
         originalName: file.name,
@@ -127,7 +119,7 @@ export async function GET(request: NextRequest) {
 
     const url = new URL(request.url)
     const milestoneProgressId = url.searchParams.get('milestoneProgressId')
-    const entrepreneurId = url.searchParams.get('entrepreneurId')
+    const projectId = url.searchParams.get('projectId')
 
     let where: Record<string, unknown> = {}
 
@@ -135,17 +127,21 @@ export async function GET(request: NextRequest) {
       where.milestoneProgressId = milestoneProgressId
     }
 
-    if (entrepreneurId) {
-      where.entrepreneurId = entrepreneurId
+    if (projectId) {
+      where.projectId = projectId
     }
 
-    // Entrepreneurs can only see their own files
+    // Entrepreneurs can only see files from their own projects
     if (user.role === 'ENTREPRENEUR') {
       const profile = await db.entrepreneurProfile.findUnique({
         where: { userId: user.userId },
       })
       if (profile) {
-        where.entrepreneurId = profile.id
+        const projectIds = await db.project.findMany({
+          where: { entrepreneurId: profile.id },
+          select: { id: true },
+        })
+        where.projectId = { in: projectIds.map((p) => p.id) }
       }
     }
 

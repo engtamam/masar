@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
 
     const url = new URL(request.url)
     const status = url.searchParams.get('status')
+    const projectId = url.searchParams.get('projectId')
     const page = parseInt(url.searchParams.get('page') || '1')
     const limit = parseInt(url.searchParams.get('limit') || '20')
     const skip = (page - 1) * limit
@@ -27,7 +28,12 @@ export async function GET(request: NextRequest) {
         where: { userId: user.userId },
       })
       if (!profile) return createErrorResponse('NOT_FOUND')
-      where.entrepreneurId = profile.id
+      // Filter by projects owned by this entrepreneur
+      const projectIds = await db.project.findMany({
+        where: { entrepreneurId: profile.id },
+        select: { id: true },
+      })
+      where.projectId = { in: projectIds.map((p) => p.id) }
     } else if (user.role === 'CONSULTANT') {
       const profile = await db.consultantProfile.findUnique({
         where: { userId: user.userId },
@@ -41,6 +47,10 @@ export async function GET(request: NextRequest) {
       where.status = status
     }
 
+    if (projectId) {
+      where.projectId = projectId
+    }
+
     const [bookings, total] = await Promise.all([
       db.booking.findMany({
         where,
@@ -51,9 +61,13 @@ export async function GET(request: NextRequest) {
               specialty: true,
             },
           },
-          entrepreneur: {
+          project: {
             include: {
-              user: { select: { id: true, name: true, avatarUrl: true } },
+              entrepreneur: {
+                include: {
+                  user: { select: { id: true, name: true, avatarUrl: true } },
+                },
+              },
             },
           },
           milestoneProgress: {
@@ -104,11 +118,14 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { consultantId, date, startTime, endTime, milestoneProgressId, notes } = body
+    const { consultantId, projectId, date, startTime, endTime, milestoneProgressId, notes } = body
 
     // Validate required fields
-    if (!consultantId || !date || !startTime || !endTime) {
-      return createErrorResponse('INVALID_INPUT')
+    if (!consultantId || !projectId || !date || !startTime || !endTime) {
+      return Response.json(
+        { success: false, error: 'consultantId, projectId, date, startTime, and endTime are required' },
+        { status: 400 }
+      )
     }
 
     // Validate date format (YYYY-MM-DD)
@@ -140,6 +157,14 @@ export async function POST(request: NextRequest) {
       where: { userId: user.userId },
     })
     if (!profile) {
+      return createErrorResponse('NOT_FOUND')
+    }
+
+    // Verify project ownership
+    const project = await db.project.findFirst({
+      where: { id: projectId, entrepreneurId: profile.id },
+    })
+    if (!project) {
       return createErrorResponse('NOT_FOUND')
     }
 
@@ -191,7 +216,7 @@ export async function POST(request: NextRequest) {
     const booking = await db.booking.create({
       data: {
         consultantId,
-        entrepreneurId: profile.id,
+        projectId,
         milestoneProgressId: milestoneProgressId || null,
         date,
         startTime,
@@ -207,9 +232,13 @@ export async function POST(request: NextRequest) {
             specialty: true,
           },
         },
-        entrepreneur: {
+        project: {
           include: {
-            user: { select: { id: true, name: true, avatarUrl: true } },
+            entrepreneur: {
+              include: {
+                user: { select: { id: true, name: true, avatarUrl: true } },
+              },
+            },
           },
         },
         milestoneProgress: {

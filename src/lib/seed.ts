@@ -102,19 +102,15 @@ async function main() {
         isActive: true,
       },
     })
-    console.log(`  ✓ Admin user created: ${adminEmail} / ${adminPassword}`)
+    console.log(`  ✓ Admin user created: ${adminEmail}`)
   }
 
   console.log('\n✅ Seeding complete!')
-  console.log('\n📋 Account:')
-  console.log('  Admin:        read from .env (ADMIN_EMAIL / ADMIN_PASSWORD)')
-  console.log('  Consultants:  created by admin from the platform')
-  console.log('  Entrepreneurs: register themselves from the landing page')
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Seed failed:', e)
+    console.error('❌ Seeding failed:', e)
     process.exit(1)
   })
   .finally(async () => {

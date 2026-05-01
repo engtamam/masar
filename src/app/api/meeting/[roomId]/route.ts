@@ -28,9 +28,13 @@ export async function GET(
             specialty: true,
           },
         },
-        entrepreneur: {
+        project: {
           include: {
-            user: { select: { id: true, name: true, avatarUrl: true, email: true } },
+            entrepreneur: {
+              include: {
+                user: { select: { id: true, name: true, avatarUrl: true, email: true } },
+              },
+            },
           },
         },
         milestoneProgress: {
@@ -55,7 +59,7 @@ export async function GET(
       ? await db.consultantProfile.findUnique({ where: { userId: user.userId } })
       : null
 
-    const isEntrepreneur = entrepreneurProfile && booking.entrepreneurId === entrepreneurProfile.id
+    const isEntrepreneur = entrepreneurProfile && booking.project?.entrepreneurId === entrepreneurProfile.id
     const isConsultant = consultantProfile && booking.consultantId === consultantProfile.id
     const isAdmin = user.role === 'ADMIN'
 
@@ -69,7 +73,7 @@ export async function GET(
     // Determine the other participant
     const otherParticipant = isEntrepreneur || isAdmin
       ? { id: booking.consultant.user.id, name: booking.consultant.user.name, avatarUrl: booking.consultant.user.avatarUrl, role: 'CONSULTANT' as const }
-      : { id: booking.entrepreneur.user.id, name: booking.entrepreneur.user.name, avatarUrl: booking.entrepreneur.user.avatarUrl, role: 'ENTREPRENEUR' as const }
+      : { id: booking.project?.entrepreneur?.user?.id || '', name: booking.project?.entrepreneur?.user?.name || '', avatarUrl: booking.project?.entrepreneur?.user?.avatarUrl || null, role: 'ENTREPRENEUR' as const }
 
     return createSuccessResponse({
       booking: {
