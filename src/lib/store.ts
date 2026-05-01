@@ -15,6 +15,7 @@ export type AppView =
   | 'verify-email'
   | 'entrepreneur-onboarding'
   | 'entrepreneur-dashboard'
+  | 'entrepreneur-projects'
   | 'entrepreneur-milestones'
   | 'entrepreneur-bookings'
   | 'entrepreneur-chat'

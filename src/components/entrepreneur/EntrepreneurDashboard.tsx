@@ -31,6 +31,11 @@ import {
   Plus,
   Paperclip,
   ExternalLink,
+  Briefcase,
+  Pencil,
+  Archive,
+  PlayCircle,
+  PauseCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -306,6 +311,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { label: 'لوحة التحكم', icon: LayoutDashboard, view: 'entrepreneur-dashboard' },
+  { label: 'مشاريعي', icon: Briefcase, view: 'entrepreneur-projects' },
   { label: 'رحلتي', icon: Map, view: 'entrepreneur-milestones' },
   { label: 'حجوزاتي', icon: Calendar, view: 'entrepreneur-bookings' },
   { label: 'المحادثات', icon: MessageCircle, view: 'entrepreneur-chat' },
@@ -418,6 +424,8 @@ export function EntrepreneurMainView() {
   switch (currentView) {
     case 'entrepreneur-dashboard':
       return <EntrepreneurOverview />;
+    case 'entrepreneur-projects':
+      return <EntrepreneurProjects />;
     case 'entrepreneur-milestones':
       return <JourneyView />;
     case 'entrepreneur-bookings':
@@ -431,7 +439,469 @@ export function EntrepreneurMainView() {
   }
 }
 
-// ========== 3. EntrepreneurOverview ==========
+// ========== 3. EntrepreneurProjects ==========
+
+const STAGE_LABELS: Record<string, { ar: string; icon: string }> = {
+  IDEA: { ar: 'فكرة', icon: '💡' },
+  PROTOTYPE: { ar: 'نموذج أولي', icon: '🔧' },
+  MVP: { ar: 'MVP', icon: '🚀' },
+  OPERATING: { ar: 'تشغيل', icon: '📈' },
+  SCALING: { ar: 'توسع', icon: '🌍' },
+};
+
+const STATUS_LABELS: Record<string, { ar: string; color: string }> = {
+  ACTIVE: { ar: 'نشط', color: 'bg-emerald-100 text-emerald-700' },
+  PAUSED: { ar: 'متوقف', color: 'bg-amber-100 text-amber-700' },
+  COMPLETED: { ar: 'مكتمل', color: 'bg-blue-100 text-blue-700' },
+  ARCHIVED: { ar: 'مؤرشف', color: 'bg-gray-100 text-gray-500' },
+};
+
+const INDUSTRY_LABELS: Record<string, string> = {
+  technology: 'التقنية',
+  healthcare: 'الرعاية الصحية',
+  education: 'التعليم',
+  fintech: 'التقنية المالية',
+  ecommerce: 'التجارة الإلكترونية',
+  food: 'الأغذية والمطاعم',
+  'real-estate': 'العقارات',
+  tourism: 'السياحة والسفر',
+  logistics: 'اللوجستيات والنقل',
+  energy: 'الطاقة',
+  media: 'الإعلام والترفيه',
+  manufacturing: 'التصنيع',
+  agriculture: 'الزراعة',
+  'social-impact': 'التأثير الاجتماعي',
+  other: 'أخرى',
+};
+
+export function EntrepreneurProjects() {
+  const { projects, setProjects, currentProjectId, setCurrentProjectId } = useAppStore();
+  const [loading, setLoading] = useState(true);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [editProjectId, setEditProjectId] = useState<string | null>(null);
+  const [formData, setFormData] = useState({ name: '', industry: '', description: '', stage: 'IDEA' });
+  const [saving, setSaving] = useState(false);
+
+  const loadProjects = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await projectsApi.getProjects();
+      if (res.success && res.data) {
+        setProjects(res.data as Project[]);
+      }
+    } catch {
+      toast.error('حدث خطأ في تحميل المشاريع');
+    } finally {
+      setLoading(false);
+    }
+  }, [setProjects]);
+
+  useEffect(() => {
+    loadProjects();
+  }, [loadProjects]);
+
+  const handleCreate = async () => {
+    if (!formData.name.trim() || !formData.industry || !formData.stage) {
+      toast.error('الرجاء تعبئة جميع الحقول المطلوبة');
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await projectsApi.createProject({
+        name: formData.name.trim(),
+        industry: formData.industry,
+        description: formData.description.trim() || undefined,
+        stage: formData.stage,
+      });
+      if (res.success) {
+        toast.success('تم إنشاء المشروع بنجاح! 🎉');
+        setShowCreateDialog(false);
+        setFormData({ name: '', industry: '', description: '', stage: 'IDEA' });
+        loadProjects();
+      } else {
+        toast.error(res.error || 'حدث خطأ في إنشاء المشروع');
+      }
+    } catch {
+      toast.error('حدث خطأ في إنشاء المشروع');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEdit = async () => {
+    if (!editProjectId || !formData.name.trim()) {
+      toast.error('الرجاء تعبئة اسم المشروع');
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await projectsApi.updateProject(editProjectId, {
+        name: formData.name.trim(),
+        industry: formData.industry || undefined,
+        description: formData.description.trim() || undefined,
+        stage: formData.stage || undefined,
+      });
+      if (res.success) {
+        toast.success('تم تحديث المشروع بنجاح');
+        setEditProjectId(null);
+        setFormData({ name: '', industry: '', description: '', stage: 'IDEA' });
+        loadProjects();
+      } else {
+        toast.error(res.error || 'حدث خطأ في تحديث المشروع');
+      }
+    } catch {
+      toast.error('حدث خطأ في تحديث المشروع');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleStatusChange = async (projectId: string, status: string) => {
+    try {
+      const res = await projectsApi.updateProject(projectId, { status });
+      if (res.success) {
+        toast.success('تم تحديث حالة المشروع');
+        loadProjects();
+      } else {
+        toast.error(res.error || 'حدث خطأ');
+      }
+    } catch {
+      toast.error('حدث خطأ');
+    }
+  };
+
+  const openEdit = (project: Project) => {
+    setEditProjectId(project.id);
+    setFormData({
+      name: project.name,
+      industry: project.industry || '',
+      description: project.description || '',
+      stage: project.stage,
+    });
+  };
+
+  const openCreate = () => {
+    setFormData({ name: '', industry: '', description: '', stage: 'IDEA' });
+    setShowCreateDialog(true);
+  };
+
+  if (loading) {
+    return (
+      <div className="p-4 sm:p-6 space-y-4">
+        <Skeleton className="h-10 w-48" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Skeleton className="h-48" />
+          <Skeleton className="h-48" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 sm:p-6 space-y-6" dir="rtl">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold text-gray-800">مشاريعي</h2>
+          <p className="text-sm text-gray-500">إدارة وتتبع جميع مشاريعك</p>
+        </div>
+        <Button onClick={openCreate} className="bg-emerald-600 hover:bg-emerald-700 gap-2">
+          <Plus className="w-4 h-4" />
+          مشروع جديد
+        </Button>
+      </div>
+
+      {/* Projects Grid */}
+      {projects.length === 0 ? (
+        <Card>
+          <CardContent className="py-16 text-center">
+            <Briefcase className="w-16 h-16 mx-auto text-gray-300 mb-4" />
+            <h3 className="text-lg font-semibold text-gray-600 mb-2">لا توجد مشاريع بعد</h3>
+            <p className="text-sm text-gray-400 mb-6">ابدأ بإنشاء مشروعك الأول لبدء رحلتك الريادية</p>
+            <Button onClick={openCreate} className="bg-emerald-600 hover:bg-emerald-700 gap-2">
+              <Plus className="w-4 h-4" />
+              إنشاء مشروع
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {projects.map((project) => {
+            const stageInfo = STAGE_LABELS[project.stage] || { ar: project.stage, icon: '📋' };
+            const statusInfo = STATUS_LABELS[project.status] || { ar: project.status, color: 'bg-gray-100 text-gray-500' };
+            const isActive = project.id === currentProjectId;
+
+            return (
+              <Card
+                key={project.id}
+                className={`overflow-hidden transition-all duration-200 hover:shadow-lg cursor-pointer ${
+                  isActive ? 'ring-2 ring-emerald-500 shadow-md' : ''
+                }`}
+                onClick={() => setCurrentProjectId(project.id)}
+              >
+                {/* Active indicator */}
+                {isActive && (
+                  <div className="h-1 bg-emerald-500" />
+                )}
+
+                <CardContent className="p-5 space-y-4">
+                  {/* Header */}
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">{stageInfo.icon}</span>
+                      <div>
+                        <h3 className="font-bold text-gray-800 text-base">{project.name}</h3>
+                        {project.industry && (
+                          <p className="text-xs text-gray-400">{INDUSTRY_LABELS[project.industry] || project.industry}</p>
+                        )}
+                      </div>
+                    </div>
+                    <Badge className={statusInfo.color}>{statusInfo.ar}</Badge>
+                  </div>
+
+                  {/* Description */}
+                  {project.description && (
+                    <p className="text-sm text-gray-500 line-clamp-2">{project.description}</p>
+                  )}
+
+                  {/* Stage */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-400">المرحلة:</span>
+                    <Badge variant="outline" className="text-xs">{stageInfo.icon} {stageInfo.ar}</Badge>
+                  </div>
+
+                  {/* Progress */}
+                  {project.milestonesTotal !== undefined && project.milestonesTotal > 0 && (
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-xs text-gray-500">
+                        <span>التقدم</span>
+                        <span>{project.milestonesCompleted || 0}/{project.milestonesTotal} مراحل</span>
+                      </div>
+                      <Progress value={project.progress || 0} className="h-2" />
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-2 pt-2 border-t">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs gap-1 h-8"
+                      onClick={(e) => { e.stopPropagation(); openEdit(project); }}
+                    >
+                      <Pencil className="w-3 h-3" />
+                      تعديل
+                    </Button>
+
+                    {project.status === 'ACTIVE' && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs gap-1 h-8 text-amber-600 hover:text-amber-700"
+                        onClick={(e) => { e.stopPropagation(); handleStatusChange(project.id, 'PAUSED'); }}
+                      >
+                        <PauseCircle className="w-3 h-3" />
+                        إيقاف
+                      </Button>
+                    )}
+
+                    {project.status === 'PAUSED' && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs gap-1 h-8 text-emerald-600 hover:text-emerald-700"
+                        onClick={(e) => { e.stopPropagation(); handleStatusChange(project.id, 'ACTIVE'); }}
+                      >
+                        <PlayCircle className="w-3 h-3" />
+                        استئناف
+                      </Button>
+                    )}
+
+                    {project.status !== 'ARCHIVED' && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs gap-1 h-8 text-gray-400 hover:text-gray-600"
+                        onClick={(e) => { e.stopPropagation(); handleStatusChange(project.id, 'ARCHIVED'); }}
+                      >
+                        <Archive className="w-3 h-3" />
+                        أرشفة
+                      </Button>
+                    )}
+
+                    {isActive && (
+                      <span className="mr-auto text-xs text-emerald-600 font-medium">● المشروع النشط</span>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Create Project Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent dir="rtl" className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>إنشاء مشروع جديد</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">اسم المشروع *</label>
+              <Input
+                placeholder="مثال: تطبيق توصيل ذكي"
+                value={formData.name}
+                onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
+                maxLength={100}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">الصناعة *</label>
+              <select
+                value={formData.industry}
+                onChange={(e) => setFormData((p) => ({ ...p, industry: e.target.value }))}
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              >
+                <option value="">اختر الصناعة</option>
+                {Object.entries(INDUSTRY_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">الوصف</label>
+              <Textarea
+                placeholder="وصف مختصر للمشروع (اختياري)"
+                value={formData.description}
+                onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))}
+                maxLength={500}
+                rows={3}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">المرحلة *</label>
+              <div className="grid grid-cols-1 gap-2">
+                {Object.entries(STAGE_LABELS).map(([value, { ar, icon }]) => (
+                  <label
+                    key={value}
+                    className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                      formData.stage === value
+                        ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="stage"
+                      value={value}
+                      checked={formData.stage === value}
+                      onChange={(e) => setFormData((p) => ({ ...p, stage: e.target.value }))}
+                      className="sr-only"
+                    />
+                    <span className="text-xl">{icon}</span>
+                    <span className="text-sm font-medium">{ar}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>إلغاء</Button>
+            <Button
+              className="bg-emerald-600 hover:bg-emerald-700"
+              onClick={handleCreate}
+              disabled={saving || !formData.name.trim() || !formData.industry || !formData.stage}
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+              {saving ? 'جاري الإنشاء...' : 'إنشاء المشروع'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Project Dialog */}
+      <Dialog open={!!editProjectId} onOpenChange={(open) => { if (!open) setEditProjectId(null); }}>
+        <DialogContent dir="rtl" className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>تعديل المشروع</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">اسم المشروع *</label>
+              <Input
+                value={formData.name}
+                onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
+                maxLength={100}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">الصناعة</label>
+              <select
+                value={formData.industry}
+                onChange={(e) => setFormData((p) => ({ ...p, industry: e.target.value }))}
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              >
+                <option value="">اختر الصناعة</option>
+                {Object.entries(INDUSTRY_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">الوصف</label>
+              <Textarea
+                value={formData.description}
+                onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))}
+                maxLength={500}
+                rows={3}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">المرحلة</label>
+              <div className="grid grid-cols-1 gap-2">
+                {Object.entries(STAGE_LABELS).map(([value, { ar, icon }]) => (
+                  <label
+                    key={value}
+                    className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                      formData.stage === value
+                        ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="edit-stage"
+                      value={value}
+                      checked={formData.stage === value}
+                      onChange={(e) => setFormData((p) => ({ ...p, stage: e.target.value }))}
+                      className="sr-only"
+                    />
+                    <span className="text-xl">{icon}</span>
+                    <span className="text-sm font-medium">{ar}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setEditProjectId(null)}>إلغاء</Button>
+            <Button
+              className="bg-emerald-600 hover:bg-emerald-700"
+              onClick={handleEdit}
+              disabled={saving || !formData.name.trim()}
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+              {saving ? 'جاري الحفظ...' : 'حفظ التغييرات'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// ========== 4. EntrepreneurOverview ==========
 
 export function EntrepreneurOverview() {
   const { user, currentProjectId } = useAppStore();
