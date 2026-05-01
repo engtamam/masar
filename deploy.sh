@@ -103,6 +103,7 @@ full_deploy() {
 
     # Build Docker images
     log "Building Docker images (this may take a few minutes)..."
+    docker system prune
     docker compose -f ${COMPOSE_FILE} build --no-cache
 
     # Start services
