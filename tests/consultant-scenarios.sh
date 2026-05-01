@@ -291,7 +291,7 @@ assert_success "استجابة ناجحة للحجز" "$BODY"
 BOOKING_ID=$(echo "$BODY" | jq -r '.data.id // empty' 2>/dev/null)
 BOOKING_STATUS=$(echo "$BODY" | jq -r '.data.status // empty' 2>/dev/null)
 assert_eq "حالة الحجز CONFIRMED" "CONFIRMED" "$BOOKING_STATUS"
-assert_contains "الحجز يحتوي على رابط اجتماع" "$BODY" "meetingLink"
+assert_contains "الحجز يحتوي على رابط اجتماع" "$BODY" "meetingUrl"
 
 # --- 3.3 عرض الحجوزات بعد الإنشاء ---
 print_subsection "3.3 عرض الحجوزات بعد إنشاء حجز جديد"

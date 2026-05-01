@@ -38,7 +38,7 @@ create_test_entrepreneur
 print_section "التبويب ١: التسجيل وتسجيل الدخول"
 
 # --- 1.1 تسجيل حساب جديد ---
-print_subsection "1.1 تسجيل حساب رائد أعمال جديد (POST /api/auth/register)"
+print_subsection '1.1 تسجيل حساب رائد أعمال جديد (POST /api/auth/register)'
 
 NEW_ENTREPRENEUR_EMAIL="register.test.$(date +%s)@masar.sa"
 RESP=$(api_post "/auth/register" "" "{
@@ -114,7 +114,7 @@ assert_not_eq "تم الحصول على token" "" "$LOGIN_TOKEN"
 print_section "التبويب ٢: الملف الشخصي ولوحة التحكم"
 
 # --- 2.1 جلب الملف الشخصي ---
-print_subsection "2.1 جلب الملف الشخصي (GET /api/auth/me)"
+print_subsection '2.1 جلب الملف الشخصي (GET /api/auth/me)'
 
 RESP=$(api_get "/auth/me" "$ENTREPRENEUR_TOKEN")
 BODY=$(get_body "$RESP")
@@ -140,7 +140,7 @@ QUOTA_LIMIT=$(echo "$BODY" | jq -r '.data.entrepreneurProfile.quota.monthlyBooki
 assert_gt "حد الحصة الشهرية أكبر من 0" "$QUOTA_LIMIT" "0"
 
 # --- 2.4 جلب الإحصائيات العامة ---
-print_subsection "2.4 جلب الإحصائيات العامة (GET /api/stats)"
+print_subsection '2.4 جلب الإحصائيات العامة (GET /api/stats)'
 
 RESP=$(api_get "/stats" "")
 BODY=$(get_body "$RESP")
@@ -152,10 +152,10 @@ assert_contains "يحتوي على عدد رواد الأعمال" "$BODY" "entr
 # ══════════════════════════════════════════════════════════════════════
 # التبويب ٣: رحلة المراحل
 # ══════════════════════════════════════════════════════════════════════
-print_section "التبويب ٣: رحلة المراحل (عرض / تقديم / رفع ملفات)"
+print_section 'التبويب ٣: رحلة المراحل (عرض / تقديم / رفع ملفات)'
 
 # --- 3.1 جلب المراحل ---
-print_subsection "3.1 جلب مراحل الرحلة (GET /api/milestones)"
+print_subsection '3.1 جلب مراحل الرحلة (GET /api/milestones)'
 
 RESP=$(api_get "/milestones" "$ENTREPRENEUR_TOKEN")
 BODY=$(get_body "$RESP")
@@ -181,7 +181,7 @@ assert_eq "حالة أول مرحلة IN_PROGRESS" "IN_PROGRESS" "$FIRST_STATUS"
 FIRST_PROGRESS_ID=$(echo "$BODY" | jq -r '.data.progress[] | select(.status=="IN_PROGRESS") | .id' 2>/dev/null | head -1)
 
 # --- 3.4 تقديم مرحلة للمراجعة ---
-print_subsection "3.4 تقديم مرحلة للمراجعة (POST /api/milestones/[id]/submit)"
+print_subsection '3.4 تقديم مرحلة للمراجعة (POST /api/milestones/[id]/submit)'
 
 if [ -n "$FIRST_PROGRESS_ID" ]; then
     RESP=$(api_post "/milestones/${FIRST_PROGRESS_ID}/submit" "$ENTREPRENEUR_TOKEN" '{"notes":"أكملت هذه المرحلة وأريد المراجعة"}')
@@ -220,7 +220,7 @@ else
 fi
 
 # --- 3.6 قبول المستشار للمرحلة المقدمة ---
-print_subsection "3.6 المستشار يقبل المرحلة (لفتح المرحلة التالية)"
+print_subsection '3.6 المستشار يقبل المرحلة (لفتح المرحلة التالية)'
 
 if [ -n "$FIRST_PROGRESS_ID" ]; then
     RESP=$(api_post "/milestones/${FIRST_PROGRESS_ID}/approve" "$CONSULTANT_TOKEN" "{
@@ -246,7 +246,7 @@ assert_gte "يوجد مرحلة IN_PROGRESS واحدة على الأقل بعد 
 # ══════════════════════════════════════════════════════════════════════
 # التبويب ٤: حجز الاستشارات
 # ══════════════════════════════════════════════════════════════════════
-print_section "التبويب ٤: حجز الاستشارات (بحث / حجز / إلغاء)"
+print_section 'التبويب ٤: حجز الاستشارات (بحث / حجز / إلغاء)'
 
 # --- 4.1 المستشار يضيف توفر ---
 print_subsection "4.1 إعداد توفر المستشار"
@@ -262,7 +262,7 @@ STATUS=$(get_status "$RESP")
 assert_http_status "إضافة توفر المستشار" "201" "$STATUS"
 
 # --- 4.2 رائد أعمال يبحث عن توفر المستشار ---
-print_subsection "4.2 البحث عن توفر المستشار (GET /api/bookings/availability)"
+print_subsection '4.2 البحث عن توفر المستشار (GET /api/bookings/availability)'
 
 RESP=$(api_get "/bookings/availability?consultantId=${CONSULTANT_PROFILE_ID}" "$ENTREPRENEUR_TOKEN")
 BODY=$(get_body "$RESP")
@@ -273,7 +273,7 @@ AVAIL_COUNT=$(echo "$BODY" | jq -r '.data | length' 2>/dev/null)
 assert_gte "يوجد فترة توفر واحدة على الأقل" "$AVAIL_COUNT" "1"
 
 # --- 4.3 إنشاء حجز ---
-print_subsection "4.3 إنشاء حجز استشارة (POST /api/bookings)"
+print_subsection '4.3 إنشاء حجز استشارة (POST /api/bookings)'
 
 TOMORROW=$(date -d "+1 day" +%Y-%m-%d 2>/dev/null || date -v+1d +%Y-%m-%d 2>/dev/null || echo "2026-05-02")
 RESP=$(api_post "/bookings" "$ENTREPRENEUR_TOKEN" "{
@@ -289,10 +289,10 @@ assert_http_status "إنشاء الحجز بنجاح" "201" "$STATUS"
 
 BOOKING_ID=$(echo "$BODY" | jq -r '.data.id // empty' 2>/dev/null)
 BOOKING_STATUS=$(echo "$BODY" | jq -r '.data.status // empty' 2>/dev/null)
-assert_eq "حالة الحجز CONFIRMED" "CONFIRMED "$BOOKING_STATUS"
+assert_eq "حالة الحجز CONFIRMED" "CONFIRMED" "$BOOKING_STATUS"
 
-MEETING_LINK=$(echo "$BODY" | jq -r '.data.meetingLink // empty' 2>/dev/null)
-assert_not_eq "يوجد رابط اجتماع Jitsi" "" "$MEETING_LINK"
+MEETING_URL=$(echo "$BODY" | jq -r '.data.meetingUrl // empty' 2>/dev/null)
+assert_not_eq "يوجد رابط اجتماع محلي" "" "$MEETING_URL"
 
 # --- 4.4 الحجز يقلل الحصة ---
 print_subsection "4.4 التحقق من تقليل الحصة بعد الحجز"
@@ -325,7 +325,7 @@ STATUS=$(get_status "$RESP")
 assert_not_eq "رفض حجز بدون تاريخ" "201" "$STATUS"
 
 # --- 4.7 جلب حجوزات رائد الأعمال ---
-print_subsection "4.7 جلب حجوزاتي (GET /api/bookings)"
+print_subsection '4.7 جلب حجوزاتي (GET /api/bookings)'
 
 RESP=$(api_get "/bookings" "$ENTREPRENEUR_TOKEN")
 BODY=$(get_body "$RESP")
@@ -336,7 +336,7 @@ MY_BOOKING_COUNT=$(echo "$BODY" | jq -r '.data.bookings | length' 2>/dev/null)
 assert_gte "يوجد حجز واحد على الأقل" "$MY_BOOKING_COUNT" "1"
 
 # --- 4.8 إلغاء الحجز ---
-print_subsection "4.8 إلغاء حجز استشارة (PATCH /api/bookings/[id])"
+print_subsection '4.8 إلغاء حجز استشارة (PATCH /api/bookings/[id])'
 
 if [ -n "$BOOKING_ID" ]; then
     RESP=$(api_patch "/bookings/${BOOKING_ID}" "$ENTREPRENEUR_TOKEN" '{
@@ -463,7 +463,7 @@ fi
 print_section "التبويب ٥: المحادثات"
 
 # --- 5.1 جلب غرف المحادثة ---
-print_subsection "5.1 جلب غرف المحادثة (GET /api/chat/rooms)"
+print_subsection '5.1 جلب غرف المحادثة (GET /api/chat/rooms)'
 
 RESP=$(api_get "/chat/rooms" "$ENTREPRENEUR_TOKEN")
 BODY=$(get_body "$RESP")
@@ -543,10 +543,10 @@ fi
 # ══════════════════════════════════════════════════════════════════════
 # التبويب ٦: الملفات (رفع / تحميل / حذف)
 # ══════════════════════════════════════════════════════════════════════
-print_section "التبويب ٦: الملفات (رفع / تحميل / حذف)"
+print_section 'التبويب ٦: الملفات (رفع / تحميل / حذف)'
 
 # --- 6.1 رفع ملف ---
-print_subsection "6.1 رفع ملف (POST /api/files)"
+print_subsection '6.1 رفع ملف (POST /api/files)'
 
 # إنشاء ملف اختبار مؤقت
 TEST_FILE="/tmp/masar_test_file_$(date +%s).txt"
@@ -569,7 +569,7 @@ assert_not_eq "تم الحصول على معرف الملف" "" "$UPLOADED_FILE_
 rm -f "$TEST_FILE"
 
 # --- 6.2 جلب قائمة الملفات ---
-print_subsection "6.2 جلب قائمة الملفات (GET /api/files)"
+print_subsection '6.2 جلب قائمة الملفات (GET /api/files)'
 
 RESP=$(api_get "/files" "$ENTREPRENEUR_TOKEN")
 BODY=$(get_body "$RESP")
@@ -592,7 +592,7 @@ else
 fi
 
 # --- 6.4 تحميل ملف ---
-print_subsection "6.4 تحميل ملف (GET /api/files/[id])"
+print_subsection '6.4 تحميل ملف (GET /api/files/[id])'
 
 if [ -n "$UPLOADED_FILE_ID" ]; then
     RESP=$(api_get "/files/${UPLOADED_FILE_ID}" "$ENTREPRENEUR_TOKEN")
@@ -604,7 +604,7 @@ else
 fi
 
 # --- 6.5 حذف ملف ---
-print_subsection "6.5 حذف ملف (DELETE /api/files/[id])"
+print_subsection '6.5 حذف ملف (DELETE /api/files/[id])'
 
 if [ -n "$UPLOADED_FILE_ID" ]; then
     RESP=$(api_delete "/files/${UPLOADED_FILE_ID}" "$ENTREPRENEUR_TOKEN")
@@ -650,7 +650,7 @@ rm -f "$TEST_FILE2"
 print_section "التبويب ٧: القوالب"
 
 # --- 7.1 جلب القوالب ---
-print_subsection "7.1 جلب القوالب المتاحة (GET /api/templates)"
+print_subsection '7.1 جلب القوالب المتاحة (GET /api/templates)'
 
 RESP=$(api_get "/templates" "$ENTREPRENEUR_TOKEN")
 BODY=$(get_body "$RESP")
@@ -683,7 +683,7 @@ assert_http_status "فلترة بتخصص محدد" "200" "$STATUS"
 print_section "التبويب ٨: الإشعارات"
 
 # --- 8.1 جلب الإشعارات ---
-print_subsection "8.1 جلب الإشعارات (GET /api/notifications)"
+print_subsection '8.1 جلب الإشعارات (GET /api/notifications)'
 
 RESP=$(api_get "/notifications" "$ENTREPRENEUR_TOKEN")
 BODY=$(get_body "$RESP")
@@ -732,7 +732,7 @@ assert_http_status "حذف جميع الإشعارات" "200" "$STATUS"
 print_section "التبويب ٩: التحقق من البريد واستعادة كلمة المرور"
 
 # --- 9.1 إعادة إرسال تأكيد البريد ---
-print_subsection "9.1 إعادة إرسال تأكيد البريد (POST /api/auth/resend-verification)"
+print_subsection '9.1 إعادة إرسال تأكيد البريد (POST /api/auth/resend-verification)'
 
 RESP=$(api_post "/auth/resend-verification" "" "{\"email\":\"${ENTREPRENEUR_EMAIL}\"}")
 BODY=$(get_body "$RESP")
@@ -740,7 +740,7 @@ STATUS=$(get_status "$RESP")
 assert_http_status "إعادة إرسال التأكيد" "200" "$STATUS"
 
 # --- 9.2 طلب استعادة كلمة المرور ---
-print_subsection "9.2 طلب استعادة كلمة المرور (POST /api/auth/forgot-password)"
+print_subsection '9.2 طلب استعادة كلمة المرور (POST /api/auth/forgot-password)'
 
 RESP=$(api_post "/auth/forgot-password" "" "{\"email\":\"${ENTREPRENEUR_EMAIL}\"}")
 BODY=$(get_body "$RESP")
@@ -749,7 +749,7 @@ assert_http_status "طلب استعادة كلمة المرور" "200" "$STATUS"
 assert_contains "رسالة تأكيد الطلب" "$BODY" "reset"
 
 # --- 9.3 طلب استعادة لبريد غير موجود ---
-print_subsection "9.3 طلب استعادة لبريد غير موجود (يجب أن يعطي نفس الرد)"
+print_subsection '9.3 طلب استعادة لبريد غير موجود (يجب أن يعطي نفس الرد)'
 
 RESP=$(api_post "/auth/forgot-password" "" '{"email":"nonexistent@masar.sa"}')
 BODY=$(get_body "$RESP")

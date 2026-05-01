@@ -1,4 +1,4 @@
-#!/bin/bin/bash
+#!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════
 # Masar Platform - Common Test Utilities
 # Shared functions: login, assertions, API helpers, reporting
