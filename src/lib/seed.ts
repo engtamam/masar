@@ -1,7 +1,5 @@
 // Seed Script
-// Seeds the database with platform defaults and a single admin user
-// Admin credentials are read from environment variables so you can customize them
-// Entrepreneurs register themselves via the UI, consultants are created by admin
+// Seeds the database with default data for development and testing
 
 import { db } from './db'
 import { hashPassword } from './auth'
@@ -73,45 +71,229 @@ async function main() {
   }
   console.log(`  ✓ ${createdMilestones.length} milestones seeded`)
 
-  // 4. Seed Admin User (credentials from environment variables)
+  // 4. Seed Admin User (reads from env vars, skips if any admin already exists)
   console.log('  → Seeding admin user...')
-  const adminEmail = process.env.ADMIN_EMAIL || 'admin@masar.sa'
-  const adminPassword = process.env.ADMIN_PASSWORD || 'admin123'
-  const adminName = process.env.ADMIN_NAME || 'مدير المنصة'
+  const existingAdmin = await db.user.findFirst({ where: { role: 'ADMIN' } })
+  
+  if (existingAdmin) {
+    // Admin exists — just make sure it's active, never touch anything else
+    await db.user.update({
+      where: { id: existingAdmin.id },
+      data: { isActive: true },
+    })
+    console.log(`  ✓ Admin user already exists: ${existingAdmin.email} (unchanged)`)
+  } else {
+    // No admin — create one from .env defaults
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@platform.sa'
+    const adminPassword = process.env.ADMIN_PASSWORD || 'admin123'
+    const adminName = process.env.ADMIN_NAME || 'Platform Admin'
+    const adminPasswordHash = await hashPassword(adminPassword)
+    await db.user.create({
+      data: {
+        email: adminEmail,
+        name: adminName,
+        passwordHash: adminPasswordHash,
+        role: 'ADMIN',
+        isActive: true,
+      },
+    })
+    console.log(`  ✓ Admin user created: ${adminEmail} / ${adminPassword}`)
+  }
 
-  const adminPasswordHash = await hashPassword(adminPassword)
-  const admin = await db.user.upsert({
-    where: { email: adminEmail },
+  // 5. Seed Sample Consultant
+  console.log('  → Seeding sample consultant...')
+  const consultantPasswordHash = await hashPassword('consultant123')
+  const consultantUser = await db.user.upsert({
+    where: { email: 'consultant@platform.sa' },
     update: {
-      // Update password and name on re-seed so changes in .env take effect
-      passwordHash: adminPasswordHash,
-      name: adminName,
+      isActive: true,
     },
     create: {
-      email: adminEmail,
-      name: adminName,
-      passwordHash: adminPasswordHash,
-      role: 'ADMIN',
+      email: 'consultant@platform.sa',
+      name: 'Ahmed Consultant',
+      passwordHash: consultantPasswordHash,
+      role: 'CONSULTANT',
+      phone: '+966501234567',
       isActive: true,
-      emailVerified: true,
     },
   })
-  console.log(`  ✓ Admin user: ${adminEmail} / ${adminPassword}`)
+
+  const consultantProfile = await db.consultantProfile.upsert({
+    where: { userId: consultantUser.id },
+    update: {
+      isActive: true,
+    },
+    create: {
+      userId: consultantUser.id,
+      specialtyId: createdSpecialties[0].id,
+      bio: 'Experienced business development consultant with 10+ years of experience',
+      experience: '10+ years in business consulting',
+      rating: 4.8,
+      isActive: true,
+    },
+  })
+
+  // Assign first 4 milestones to the first consultant
+  for (const ms of createdMilestones.filter((_, i) => i < 4)) {
+    await db.milestoneDefault.update({
+      where: { id: ms.id },
+      data: { consultantId: consultantProfile.id },
+    })
+  }
+  console.log(`  ✓ Consultant user: consultant@platform.sa / consultant123`)
+
+  // 6. Seed Sample Entrepreneur
+  console.log('  → Seeding sample entrepreneur...')
+  const entrepreneurPasswordHash = await hashPassword('entrepreneur123')
+  const entrepreneurUser = await db.user.upsert({
+    where: { email: 'entrepreneur@platform.sa' },
+    update: {
+      isActive: true,
+    },
+    create: {
+      email: 'entrepreneur@platform.sa',
+      name: 'Sara Entrepreneur',
+      passwordHash: entrepreneurPasswordHash,
+      role: 'ENTREPRENEUR',
+      phone: '+966509876543',
+      isActive: true,
+    },
+  })
+
+  const entrepreneurProfile = await db.entrepreneurProfile.upsert({
+    where: { userId: entrepreneurUser.id },
+    update: {},
+    create: {
+      userId: entrepreneurUser.id,
+      projectName: 'TechVenture',
+      projectDesc: 'An innovative technology startup',
+      industry: 'Technology',
+      stage: 'IDEA',
+    },
+  })
+
+  // Create milestone progress for entrepreneur (first unlocked, rest locked)
+  const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
+  for (let i = 0; i < createdMilestones.length; i++) {
+    await db.milestoneProgress.upsert({
+      where: {
+        entrepreneurId_milestoneDefaultId: {
+          entrepreneurId: entrepreneurProfile.id,
+          milestoneDefaultId: createdMilestones[i].id,
+        },
+      },
+      update: {},
+      create: {
+        entrepreneurId: entrepreneurProfile.id,
+        milestoneDefaultId: createdMilestones[i].id,
+        status: i === 0 ? 'IN_PROGRESS' : 'LOCKED',
+        startedAt: i === 0 ? new Date() : null,
+      },
+    })
+  }
+
+  // Create quota for entrepreneur
+  await db.quota.upsert({
+    where: { entrepreneurId: entrepreneurProfile.id },
+    update: {},
+    create: {
+      entrepreneurId: entrepreneurProfile.id,
+      monthlyBookingLimit: 4,
+      bookingsUsedThisMonth: 0,
+      currentMonth,
+      isExempted: false,
+    },
+  })
+
+  // Create chat room between entrepreneur and consultant (skip if already exists)
+  const existingRoom = await db.chatRoom.findFirst({
+    where: {
+      type: 'DIRECT',
+      members: {
+        every: {
+          userId: { in: [entrepreneurUser.id, consultantUser.id] },
+        },
+      },
+    },
+  })
+
+  if (!existingRoom) {
+    const chatRoom = await db.chatRoom.create({
+      data: {
+        name: 'Sara - Ahmed: Business Development',
+        type: 'DIRECT',
+        members: {
+          create: [
+            { userId: entrepreneurUser.id, role: 'member' },
+            { userId: consultantUser.id, role: 'member' },
+          ],
+        },
+      },
+    })
+
+    // Add a welcome message
+    await db.chatMessage.create({
+      data: {
+        chatRoomId: chatRoom.id,
+        senderId: consultantUser.id,
+        content: 'Welcome to the incubator program! I am your business development consultant. Feel free to ask any questions.',
+      },
+    })
+    console.log('  ✓ Chat room created')
+  } else {
+    console.log('  ✓ Chat room already exists, skipping')
+  }
+
+  console.log(`  ✓ Entrepreneur user: entrepreneur@platform.sa / entrepreneur123`)
+
+  // 7. Seed second consultant for variety
+  console.log('  → Seeding second consultant...')
+  const consultant2PasswordHash = await hashPassword('consultant123')
+  const consultant2User = await db.user.upsert({
+    where: { email: 'consultant2@platform.sa' },
+    update: {
+      isActive: true,
+    },
+    create: {
+      email: 'consultant2@platform.sa',
+      name: 'Fatima Legal',
+      passwordHash: consultant2PasswordHash,
+      role: 'CONSULTANT',
+      phone: '+966507654321',
+      isActive: true,
+    },
+  })
+
+  const consultant2Profile = await db.consultantProfile.upsert({
+    where: { userId: consultant2User.id },
+    update: {
+      isActive: true,
+    },
+    create: {
+      userId: consultant2User.id,
+      specialtyId: createdSpecialties[2].id,
+      bio: 'Legal expert specializing in startup law and compliance',
+      experience: '8+ years in legal consulting',
+      rating: 4.6,
+      isActive: true,
+    },
+  })
+
+  // Assign remaining milestones to second consultant
+  for (const ms of createdMilestones.filter((_, i) => i >= 4)) {
+    await db.milestoneDefault.update({
+      where: { id: ms.id },
+      data: { consultantId: consultant2Profile.id },
+    })
+  }
+  console.log(`  ✓ Second consultant: consultant2@platform.sa / consultant123`)
 
   console.log('\n✅ Seeding complete!')
-  console.log('\n📋 Platform is ready!')
-  console.log('  ┌──────────────────────────────────────────────────────┐')
-  console.log('  │  Admin login:                                       │')
-  console.log(`  │    Email:    ${adminEmail.padEnd(38)}│`)
-  console.log(`  │    Password: ${adminPassword.padEnd(38)}│`)
-  console.log('  │                                                      │')
-  console.log('  │  Entrepreneurs: Register via the landing page        │')
-  console.log('  │  Consultants:  Created by admin from the admin panel │')
-  console.log('  └──────────────────────────────────────────────────────┘')
-  console.log('\n💡 To change admin credentials, set these in .env:')
-  console.log('   ADMIN_EMAIL=your-email@example.com')
-  console.log('   ADMIN_PASSWORD=your-secure-password')
-  console.log('   ADMIN_NAME=Your Name')
+  console.log('\n📋 Test Accounts:')
+  console.log('  Admin:        admin@platform.sa / admin123')
+  console.log('  Consultant:   consultant@platform.sa / consultant123')
+  console.log('  Consultant 2: consultant2@platform.sa / consultant123')
+  console.log('  Entrepreneur: entrepreneur@platform.sa / entrepreneur123')
 }
 
 main()
