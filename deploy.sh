@@ -101,9 +101,12 @@ full_deploy() {
     bun install
     cd mini-services/chat-service && bun install && cd ../..
 
+    # Clean old Docker cache (free disk space before build)
+    log "Cleaning old Docker cache..."
+    docker system prune -f
+
     # Build Docker images
     log "Building Docker images (this may take a few minutes)..."
-    docker system prune
     docker compose -f ${COMPOSE_FILE} build --no-cache
 
     # Start services
@@ -132,9 +135,9 @@ full_deploy() {
     log "Pushing database schema..."
     docker compose -f ${COMPOSE_FILE} exec web npx prisma db push --accept-data-loss
 
-    # Seed the database
+    # Seed the database (via API route — no npx tsx path alias issues)
     log "Seeding database with initial data..."
-    docker compose -f ${COMPOSE_FILE} exec web npx tsx src/lib/seed.ts
+    docker compose -f ${COMPOSE_FILE} exec web curl -sf -X POST http://localhost:3000/api/admin/seed
 
     # Show status
     show_status
@@ -253,7 +256,7 @@ backup_database() {
 # ─── Seed database ────────────────────────────────────────
 seed_database() {
     log "Seeding database..."
-    docker compose -f ${COMPOSE_FILE} exec web npx tsx src/lib/seed.ts
+    docker compose -f ${COMPOSE_FILE} exec web curl -sf -X POST http://localhost:3000/api/admin/seed
     log "Seeding complete!"
 }
 
