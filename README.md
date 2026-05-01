@@ -115,7 +115,6 @@ These are stored in the database and can be changed from the **Admin Control Pan
 | `PLATFORM_NAME` | `مَسَار` | Platform display name |
 | `DEFAULT_MONTHLY_QUOTA` | `4` | Monthly booking limit for entrepreneurs |
 | `DEFAULT_SLOT_DURATION` | `30` | Consultation slot duration in minutes |
-| `JITSI_DOMAIN` | `meet.jit.si` | Jitsi Meet domain for video calls |
 | `UPLOAD_MAX_SIZE_MB` | `10` | Maximum file upload size in MB |
 | `ALLOWED_FILE_TYPES` | `["pdf","doc","docx",...]` | Allowed file extensions (JSON array) |
 | `DEFAULT_LANGUAGE` | `ar` | Default platform language |

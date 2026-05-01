@@ -567,7 +567,7 @@ Excludes: `node_modules`, `.next`, `.git`, `db/*.db`, `upload/*`, `*.log`, `.env
 Documents all environment variables:
 - `DATABASE_URL` — SQLite database path
 - `JWT_SECRET` — Authentication secret (with production warning)
-- Commented platform config overrides: PLATFORM_NAME, DEFAULT_MONTHLY_QUOTA, DEFAULT_SLOT_DURATION, JITSI_DOMAIN, ENCRYPTION_KEY, UPLOAD_MAX_SIZE_MB, ALLOWED_FILE_TYPES, DEFAULT_LANGUAGE, JWT_EXPIRY
+- Commented platform config overrides: PLATFORM_NAME, DEFAULT_MONTHLY_QUOTA, DEFAULT_SLOT_DURATION, ENCRYPTION_KEY, UPLOAD_MAX_SIZE_MB, ALLOWED_FILE_TYPES, DEFAULT_LANGUAGE, JWT_EXPIRY
 
 #### 7. next.config.ts Verification
 Confirmed `output: "standalone"` already present — required for Docker standalone deployment. No changes needed.

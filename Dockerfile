@@ -24,8 +24,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
-RUN groupadd -g 1001 nodejs && useradd -u 1001 -g nodejs -s /bin/sh nextjs
-
+RUN groupadd -g 1001 nodejs && useradd -u 1001 -g nodejs -s /bin/sh -m nextjs
 # Copy standalone output
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
@@ -43,6 +42,9 @@ COPY --from=builder /app/src/lib ./src/lib
 
 # Create data directories with correct permissions
 RUN mkdir -p /app/db /app/upload && chown -R nextjs:nodejs /app/db /app/upload
+
+# Give nextjs write access to node_modules (needed by prisma db push engine copy)
+RUN chown -R nextjs:nodejs /app/node_modules
 
 USER nextjs
 
