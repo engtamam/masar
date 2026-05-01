@@ -30,8 +30,8 @@ export async function generateToken(payload: {
   email: string
   role: string
 }): Promise<string> {
-  const expiry = await getConfig('JWT_EXPIRY') || '7d'
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: expiry as string })
+  const expiry: string = (await getConfig('JWT_EXPIRY')) || '7d'
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: expiry } as jwt.SignOptions)
 }
 
 /**

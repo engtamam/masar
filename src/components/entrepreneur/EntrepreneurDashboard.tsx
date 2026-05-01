@@ -57,6 +57,7 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog,
+  DialogTrigger,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -1322,7 +1323,7 @@ function NewBookingDialog({ onBookingCreated }: { onBookingCreated: () => void }
     async function loadAvailability() {
       setLoading(true);
       try {
-        const res = await bookingsApi.getAvailability(selectedConsultant);
+        const res = await bookingsApi.getAvailability(selectedConsultant!);
         if (res.success && res.data) {
           setAvailability(res.data as AvailabilitySlot[]);
         }
@@ -1602,7 +1603,7 @@ export function EntrepreneurChat() {
     async function loadMessages() {
       setLoadingMessages(true);
       try {
-        const res = await chatApi.getMessages(activeChatRoomId);
+        const res = await chatApi.getMessages(activeChatRoomId!);
         if (res.success && res.data) {
           const data = res.data as { messages: ChatMessageItem[] };
           setMessages(data.messages || []);

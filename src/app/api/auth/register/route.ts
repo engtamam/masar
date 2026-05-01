@@ -1,13 +1,11 @@
 // POST /api/auth/register
 // Register a new entrepreneur account
-// Sends email verification after registration
 
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { hashPassword, generateToken } from '@/lib/auth'
 import { createSuccessResponse, createErrorResponse } from '@/lib/middleware'
 import { getConfigNumber } from '@/lib/config'
-import { sendEmail, emailVerificationTemplate, generateSecureToken } from '@/lib/email'
 
 export async function POST(request: NextRequest) {
   try {
@@ -42,17 +40,13 @@ export async function POST(request: NextRequest) {
     // Hash password
     const passwordHash = await hashPassword(password)
 
-    // Generate email verification token
-    const verifyToken = generateSecureToken()
-    const verifyExpires = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
-
     // Get default quota
     const defaultQuota = await getConfigNumber('DEFAULT_MONTHLY_QUOTA')
     const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
 
     // Create user with entrepreneur profile, quota, and milestone progress in a transaction
     const result = await db.$transaction(async (tx) => {
-      // Create user with email verification token
+      // Create user
       const user = await tx.user.create({
         data: {
           email,
@@ -60,9 +54,6 @@ export async function POST(request: NextRequest) {
           passwordHash,
           role: 'ENTREPRENEUR',
           isActive: true,
-          emailVerified: false,
-          emailVerifyToken: verifyToken,
-          emailVerifyExpires: verifyExpires,
         },
       })
 
@@ -111,6 +102,7 @@ export async function POST(request: NextRequest) {
             isActive: true,
             user: { isActive: true },
           },
+          include: { user: true },
         })
 
         if (assignedConsultant) {
@@ -141,21 +133,7 @@ export async function POST(request: NextRequest) {
       return { user, profile }
     })
 
-    // Send verification email (async, don't block registration)
-    const baseUrl = process.env.NEXTAUTH_URL || process.env.DOMAIN
-      ? `https://${process.env.DOMAIN}`
-      : 'http://localhost:3000'
-    const verificationUrl = `${baseUrl}/verify-email?token=${verifyToken}`
-
-    sendEmail({
-      to: result.user.email,
-      subject: 'تأكيد البريد الإلكتروني - مَسَار',
-      ...emailVerificationTemplate(result.user.name, verificationUrl),
-    }).catch((err) => {
-      console.error('Failed to send verification email:', err)
-    })
-
-    // Generate JWT token (allow login even without email verification)
+    // Generate JWT token
     const token = await generateToken({
       userId: result.user.id,
       email: result.user.email,
@@ -169,7 +147,6 @@ export async function POST(request: NextRequest) {
         name: result.user.name,
         email: result.user.email,
         role: result.user.role,
-        emailVerified: false,
       },
     }, 201)
   } catch (error) {

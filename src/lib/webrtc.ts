@@ -181,13 +181,13 @@ export function createWebRTCManager(callbacks: WebRTCCallbacks): WebRTCManager {
           }
         }
 
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.sdp))
-        const answer = await peerConnection.createAnswer()
-        await peerConnection.setLocalDescription(answer)
+        await peerConnection!.setRemoteDescription(new RTCSessionDescription(data.sdp))
+        const answer = await peerConnection!.createAnswer()
+        await peerConnection!.setLocalDescription(answer)
 
-        socket.emit('webrtc-answer', {
+        socket!.emit('webrtc-answer', {
           roomId: currentRoomId,
-          sdp: peerConnection.localDescription?.toJSON(),
+          sdp: peerConnection!.localDescription?.toJSON(),
           fromUserId: currentUserId,
           toUserId: data.fromUserId,
         })

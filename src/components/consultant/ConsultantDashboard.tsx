@@ -740,7 +740,7 @@ export function ConsultantSchedule() {
     setLoading(true);
     try {
       const [availRes, bookRes] = await Promise.all([
-        user?.id ? bookingsApi.getAvailability(user.id) : Promise.resolve({ success: false }),
+        user?.id ? bookingsApi.getAvailability(user.id) : Promise.resolve({ success: false, data: undefined } as { success: boolean; data?: unknown }),
         bookingsApi.getBookings(),
       ]);
 
@@ -1599,7 +1599,7 @@ export function ConsultantChat() {
     async function loadMessages() {
       setLoadingMessages(true);
       try {
-        const res = await chatApi.getMessages(activeChatRoomId);
+        const res = await chatApi.getMessages(activeChatRoomId!);
         if (res.success && res.data) {
           const data = res.data as { messages: ChatMessageItem[] };
           setMessages(data.messages || []);

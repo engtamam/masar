@@ -541,6 +541,8 @@ export const adminApi = {
     id: string;
     titleAr?: string;
     titleEn?: string;
+    descriptionAr?: string;
+    descriptionEn?: string;
     sortOrder?: number;
     specialtyId?: string;
     consultantId?: string;

@@ -54,8 +54,8 @@ export async function POST(request: NextRequest) {
     // Determine if file should be encrypted
     // Data Room milestone files should always be encrypted
     let isEncrypted = false
-    let encryptionKeyRef = null
-    let fileBuffer = buffer
+    let encryptionKeyRef: string | null = null
+    let fileBuffer: Buffer = buffer
 
     if (shouldEncrypt === 'true') {
       isEncrypted = true

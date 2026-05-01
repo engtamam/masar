@@ -52,7 +52,7 @@ export async function GET(
       return createErrorResponse('NOT_FOUND')
     }
 
-    let fileBuffer = readFileSync(file.filePath)
+    let fileBuffer: Buffer = readFileSync(file.filePath) as Buffer
 
     // Decrypt if encrypted
     if (file.isEncrypted && file.encryptionKeyRef) {
@@ -60,7 +60,7 @@ export async function GET(
     }
 
     // Return file as download
-    return new Response(fileBuffer, {
+    return new Response(new Uint8Array(fileBuffer), {
       headers: {
         'Content-Type': file.mimeType,
         'Content-Disposition': `attachment; filename="${file.originalName}"`,

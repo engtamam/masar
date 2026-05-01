@@ -33,7 +33,8 @@ async function main() {
     { nameAr: 'التسويق والاستثمار', nameEn: 'Marketing & Investment', description: 'Marketing strategy and investment readiness', icon: 'trending-up', color: '#9b59b6', sortOrder: 4 },
   ]
 
-  const createdSpecialties = []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const createdSpecialties: any[] = []
   for (const spec of specialties) {
     const specialty = await db.specialty.upsert({
       where: { id: spec.nameEn.toLowerCase().replace(/\s+/g, '-') + '-spec' },
@@ -60,7 +61,8 @@ async function main() {
     { titleAr: 'تحديد قيمة التمويل', titleEn: 'The Ask', descriptionAr: 'تحديد قيمة التمويل المطلوب وشروط الاستثمار', descriptionEn: 'Determine the funding amount and investment terms', icon: 'dollar-sign', sortOrder: 7, specialtyId: createdSpecialties[4].id },
   ]
 
-  const createdMilestones = []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const createdMilestones: any[] = []
   for (const ms of milestones) {
     const milestone = await db.milestoneDefault.upsert({
       where: { id: ms.titleEn.toLowerCase().replace(/\s+/g, '-') + '-ms' },
