@@ -131,7 +131,11 @@ full_deploy() {
         err "Web service failed to become healthy. Check logs: docker compose -f ${COMPOSE_FILE} logs web"
     fi
 
-    # Push database schema (create tables)
+    # Migrate existing data to multi-project schema (safe, idempotent)
+    log "Running data migration (entrepreneurId → projectId)..."
+    docker compose -f ${COMPOSE_FILE} exec web curl -sf -X POST http://localhost:3000/api/admin/migrate || warn "Migration skipped (may be fresh database)"
+
+    # Push database schema (create/finalize tables)
     log "Pushing database schema..."
     docker compose -f ${COMPOSE_FILE} exec web npx prisma db push --accept-data-loss
 
@@ -203,6 +207,10 @@ update_deploy() {
     if [ $retries -eq $max_retries ]; then
         err "Web service failed to become healthy. Check logs: docker compose -f ${COMPOSE_FILE} logs web"
     fi
+
+    # Migrate existing data to multi-project schema (safe, idempotent)
+    log "Running data migration (entrepreneurId → projectId)..."
+    docker compose -f ${COMPOSE_FILE} exec web curl -sf -X POST http://localhost:3000/api/admin/migrate || warn "Migration skipped (may be fresh database)"
 
     # Push database schema changes
     log "Pushing database schema changes..."
@@ -282,6 +290,13 @@ seed_database() {
     log "Seeding complete!"
 }
 
+# ─── Run migration only ────────────────────────────────────
+run_migration() {
+    log "Running data migration (entrepreneurId → projectId)..."
+    docker compose -f ${COMPOSE_FILE} exec web curl -sf -X POST http://localhost:3000/api/admin/migrate
+    log "Migration complete!"
+}
+
 # ─── Main ─────────────────────────────────────────────────
 case "${1:-}" in
     --update)
@@ -302,6 +317,9 @@ case "${1:-}" in
     --seed)
         seed_database
         ;;
+    --migrate)
+        run_migration
+        ;;
     --help|-h)
         echo "Masar Platform Deployment Script"
         echo ""
@@ -315,6 +333,7 @@ case "${1:-}" in
         echo "  --status     Check service status"
         echo "  --backup     Backup database"
         echo "  --seed       Seed database with initial data"
+        echo "  --migrate    Run data migration only (safe, idempotent)"
         echo "  --help       Show this help message"
         ;;
     *)
