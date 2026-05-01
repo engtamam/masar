@@ -503,7 +503,7 @@ export const adminApi = {
    * Soft-delete a specialty (sets isActive = false)
    */
   deleteSpecialty: (id: string) =>
-    request<{ message: string }>(`/admin/specialties?id=${id}`, {
+    request<{ message: string }>(`/admin/specialties?id=${encodeURIComponent(id)}`, {
       method: 'DELETE',
     }),
 
