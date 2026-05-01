@@ -23,28 +23,27 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # Install curl for healthcheck
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user
+# Create non-root user (-m creates /home/nextjs for npx/tsx cache)
 RUN groupadd -g 1001 nodejs && useradd -u 1001 -g nodejs -s /bin/sh -m nextjs
-# Copy standalone output
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
 
-# Copy full node_modules (needed for seed command: bcryptjs, prisma, etc.)
-COPY --from=builder /app/node_modules ./node_modules
+# Copy standalone output
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# Copy full node_modules with ownership (needed for seed: bcryptjs, prisma, etc.)
+# Using --chown avoids a separate chown layer that doubles image size
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 
 # Copy package.json (needed by npx to resolve binaries)
-COPY --from=builder /app/package.json ./package.json
+COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
 
 # Copy prisma schema and lib files (needed for seed command inside container)
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/src/lib ./src/lib
+COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+COPY --from=builder --chown=nextjs:nodejs /app/src/lib ./src/lib
 
 # Create data directories with correct permissions
 RUN mkdir -p /app/db /app/upload && chown -R nextjs:nodejs /app/db /app/upload
-
-# Give nextjs write access to node_modules (needed by prisma db push engine copy)
-RUN chown -R nextjs:nodejs /app/node_modules
 
 USER nextjs
 
