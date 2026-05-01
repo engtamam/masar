@@ -186,6 +186,28 @@ update_deploy() {
     log "Restarting services..."
     docker compose -f ${COMPOSE_FILE} up -d --remove-orphans
 
+    # Wait for web to be healthy
+    log "Waiting for web service to become healthy..."
+    local retries=0
+    local max_retries=30
+    while [ $retries -lt $max_retries ]; do
+        if docker compose -f ${COMPOSE_FILE} exec web curl -sf http://localhost:3000/api > /dev/null 2>&1; then
+            log "Web service is healthy!"
+            break
+        fi
+        retries=$((retries + 1))
+        log "  Waiting... ($retries/$max_retries)"
+        sleep 10
+    done
+
+    if [ $retries -eq $max_retries ]; then
+        err "Web service failed to become healthy. Check logs: docker compose -f ${COMPOSE_FILE} logs web"
+    fi
+
+    # Push database schema changes
+    log "Pushing database schema changes..."
+    docker compose -f ${COMPOSE_FILE} exec web npx prisma db push --accept-data-loss
+
     # Clean up old images
     docker image prune -f
 
