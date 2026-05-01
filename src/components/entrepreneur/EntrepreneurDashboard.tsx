@@ -12,7 +12,7 @@ import {
   MessageCircle,
   FolderOpen,
   LogOut,
-  Compass,
+  Rocket,
   Lock,
   CheckCircle2,
   Clock,
@@ -31,6 +31,7 @@ import {
   Plus,
   Paperclip,
   ExternalLink,
+  User,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -42,7 +43,6 @@ import {
   chatApi,
   filesApi,
   notificationsApi,
-  templatesApi,
 } from '@/lib/api';
 
 import { Button } from '@/components/ui/button';
@@ -157,8 +157,9 @@ interface BookingItem {
   date: string;
   startTime: string;
   endTime: string;
-  status: 'CONFIRMED' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW';
-  meetingLink?: string;
+  status: 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW';
+  meetingRoomId?: string;
+  meetingUrl?: string;
   notes?: string;
   cancellationReason?: string;
   consultant: BookingConsultant;
@@ -243,6 +244,7 @@ const MILESTONE_STATUS_MAP: Record<string, { label: string; color: string; bgCol
 
 const BOOKING_STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   CONFIRMED: { label: 'مؤكد', variant: 'default' },
+  IN_PROGRESS: { label: 'جاري', variant: 'default' },
   COMPLETED: { label: 'مكتمل', variant: 'secondary' },
   CANCELLED: { label: 'ملغى', variant: 'destructive' },
   NO_SHOW: { label: 'لم يحضر', variant: 'outline' },
@@ -308,28 +310,22 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'لوحة التحكم', icon: LayoutDashboard, view: 'entrepreneur-dashboard' },
   { label: 'رحلتي', icon: Map, view: 'entrepreneur-milestones' },
   { label: 'حجوزاتي', icon: Calendar, view: 'entrepreneur-bookings' },
-  { label: 'القوالب', icon: FileText, view: 'entrepreneur-templates' },
   { label: 'المحادثات', icon: MessageCircle, view: 'entrepreneur-chat' },
   { label: 'الملفات', icon: FolderOpen, view: 'entrepreneur-files' },
 ];
 
 export function EntrepreneurSidebar() {
-  const { currentView, setCurrentView, user, logout, setSidebarOpen } = useAppStore();
-
-  const handleNav = (view: AppView) => {
-    setCurrentView(view);
-    setSidebarOpen(false); // Close mobile sidebar on navigation
-  };
+  const { currentView, setCurrentView, user, logout } = useAppStore();
 
   return (
-    <aside className="w-64 md:w-64 min-h-screen bg-gradient-to-b from-emerald-800 to-emerald-900 text-white flex flex-col shadow-xl">
+    <aside className="w-64 min-h-screen bg-gradient-to-b from-emerald-800 to-emerald-900 text-white flex flex-col shadow-xl">
       {/* Logo */}
       <div className="p-5 flex items-center gap-3 border-b border-emerald-700/50">
         <div className="w-10 h-10 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center">
-          <Compass className="w-5 h-5 text-emerald-200" />
+          <Rocket className="w-5 h-5 text-emerald-200" />
         </div>
         <div>
-          <h1 className="font-bold text-lg leading-tight">مَسَار</h1>
+          <h1 className="font-bold text-lg leading-tight">الحاضنة الرقمية</h1>
           <p className="text-emerald-300 text-xs">منصة رواد الأعمال</p>
         </div>
       </div>
@@ -342,7 +338,7 @@ export function EntrepreneurSidebar() {
           return (
             <button
               key={item.view}
-              onClick={() => handleNav(item.view)}
+              onClick={() => setCurrentView(item.view)}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
                 isActive
                   ? 'bg-white/15 text-white shadow-lg shadow-emerald-900/30'
@@ -371,7 +367,7 @@ export function EntrepreneurSidebar() {
           </div>
         </div>
         <button
-          onClick={() => { setSidebarOpen(false); logout(); }}
+          onClick={logout}
           className="w-full flex items-center gap-2 px-3 py-2 text-sm text-emerald-300 hover:text-white hover:bg-red-500/20 rounded-lg transition-colors"
         >
           <LogOut className="w-4 h-4" />
@@ -398,8 +394,6 @@ export function EntrepreneurMainView() {
       return <EntrepreneurChat />;
     case 'entrepreneur-files':
       return <EntrepreneurFiles />;
-    case 'entrepreneur-templates':
-      return <EntrepreneurTemplates />;
     default:
       return <EntrepreneurOverview />;
   }
@@ -479,7 +473,7 @@ export function EntrepreneurOverview() {
         <h2 className="text-2xl font-bold text-gray-900">
           مرحباً، {user?.name || 'رائد الأعمال'} 👋
         </h2>
-        <p className="text-muted-foreground mt-1">إليك نظرة عامة على تقدمك في مبادرة مَسَار</p>
+        <p className="text-muted-foreground mt-1">إليك نظرة عامة على تقدمك في الحاضنة</p>
       </div>
 
       {/* Stat cards */}
@@ -747,7 +741,7 @@ export function JourneyView() {
       <div className="mb-8">
         <h2 className="text-2xl font-bold text-gray-900">رحلتي</h2>
         <p className="text-muted-foreground mt-1">
-          تابع تقدمك عبر المراحل الثمانية نحو القبول في الحاضنات والمسرّعات
+          تابع تقدمك عبر المراحل الثمانية نحو جاهزية الاستثمار
         </p>
       </div>
 
@@ -1119,8 +1113,8 @@ export function EntrepreneurBookings() {
     }
   };
 
-  const openJitsiLink = (link: string) => {
-    window.open(link, '_blank', 'noopener,noreferrer');
+  const openMeetingRoom = (roomId: string) => {
+    window.open(`/meeting/${roomId}`, '_self');
   };
 
   if (loading) {
@@ -1136,7 +1130,10 @@ export function EntrepreneurBookings() {
 
   return (
     <div className="p-4 sm:p-6">
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">حجوزاتي</h2>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-gray-900">حجوزاتي</h2>
+        <NewBookingDialog onBookingCreated={loadBookings} />
+      </div>
 
       {bookings.length === 0 ? (
         <Card>
@@ -1182,12 +1179,12 @@ export function EntrepreneurBookings() {
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
 
-                      {booking.status === 'CONFIRMED' && booking.meetingLink && (
+                      {(booking.status === 'CONFIRMED' || booking.status === 'IN_PROGRESS') && booking.meetingRoomId && (
                         <Button
                           size="sm"
                           variant="outline"
                           className="text-emerald-600 border-emerald-200 hover:bg-emerald-50"
-                          onClick={() => openJitsiLink(booking.meetingLink!)}
+                          onClick={() => openMeetingRoom(booking.meetingRoomId!)}
                         >
                           <Video className="w-4 h-4" />
                           <span className="hidden sm:inline">انضم</span>
@@ -1252,6 +1249,310 @@ export function EntrepreneurBookings() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// ========== 5b. NewBookingDialog ==========
+
+interface ConsultantOption {
+  id: string;
+  user: { name: string; avatarUrl?: string | null };
+  specialty: { nameAr: string; nameEn: string };
+  rating: number;
+}
+
+interface AvailabilitySlot {
+  id: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  slotDuration: number;
+  specificDate?: string | null;
+}
+
+function NewBookingDialog({ onBookingCreated }: { onBookingCreated: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [consultants, setConsultants] = useState<ConsultantOption[]>([]);
+  const [selectedConsultant, setSelectedConsultant] = useState<string | null>(null);
+  const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string>('');
+  const [selectedStartTime, setSelectedStartTime] = useState<string>('');
+  const [selectedEndTime, setSelectedEndTime] = useState<string>('');
+  const [notes, setNotes] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const DAY_NAMES = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+
+  // Load consultants when dialog opens
+  useEffect(() => {
+    if (!open) return;
+    setStep(1);
+    setSelectedConsultant(null);
+    setSelectedDate('');
+    setSelectedStartTime('');
+    setSelectedEndTime('');
+    setNotes('');
+
+    async function loadConsultants() {
+      setLoading(true);
+      try {
+        const res = await fetch('/api/admin/users?role=CONSULTANT&page=1&limit=100', {
+          headers: {},
+        });
+        const result = await res.json();
+        if (result.success && result.data) {
+          const usersData = result.data as { users: ConsultantOption[] };
+          setConsultants(usersData.users || []);
+        }
+      } catch {
+        // Silently handle
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadConsultants();
+  }, [open]);
+
+  // Load availability when consultant is selected
+  useEffect(() => {
+    if (!selectedConsultant) return;
+
+    async function loadAvailability() {
+      setLoading(true);
+      try {
+        const res = await bookingsApi.getAvailability(selectedConsultant);
+        if (res.success && res.data) {
+          setAvailability(res.data as AvailabilitySlot[]);
+        }
+      } catch {
+        // Silently handle
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadAvailability();
+  }, [selectedConsultant]);
+
+  // Get available time slots for selected date
+  const availableSlotsForDate = availability.filter(slot => {
+    if (slot.specificDate) return slot.specificDate === selectedDate;
+    if (!selectedDate) return false;
+    const dayOfWeek = new Date(selectedDate + 'T00:00:00').getDay();
+    return slot.dayOfWeek === dayOfWeek;
+  });
+
+  // Generate time options from availability
+  const timeOptions: { start: string; end: string }[] = [];
+  availableSlotsForDate.forEach(slot => {
+    const [startH, startM] = slot.startTime.split(':').map(Number);
+    const duration = slot.slotDuration || 30;
+    const totalMinutes = startH * 60 + startM;
+    const [endH, endM] = slot.endTime.split(':').map(Number);
+    const endMinutes = endH * 60 + endM;
+
+    let current = totalMinutes;
+    while (current + duration <= endMinutes) {
+      const h = Math.floor(current / 60);
+      const m = current % 60;
+      const endSlot = current + duration;
+      const eh = Math.floor(endSlot / 60);
+      const em = endSlot % 60;
+      timeOptions.push({
+        start: `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`,
+        end: `${eh.toString().padStart(2, '0')}:${em.toString().padStart(2, '0')}`,
+      });
+      current += duration;
+    }
+  });
+
+  const handleSubmit = async () => {
+    if (!selectedConsultant || !selectedDate || !selectedStartTime || !selectedEndTime) return;
+
+    setSubmitting(true);
+    try {
+      const res = await bookingsApi.createBooking({
+        consultantId: selectedConsultant,
+        date: selectedDate,
+        startTime: selectedStartTime,
+        endTime: selectedEndTime,
+        notes: notes || undefined,
+      });
+
+      if (res.success) {
+        toast.success('تم إنشاء الحجز بنجاح');
+        setOpen(false);
+        onBookingCreated();
+      } else {
+        toast.error(res.error || 'فشل في إنشاء الحجز');
+      }
+    } catch {
+      toast.error('حدث خطأ غير متوقع');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button className="bg-emerald-600 hover:bg-emerald-700 text-white">
+          <Plus className="w-4 h-4" />
+          حجز جديد
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>حجز جلسة استشارية</DialogTitle>
+          <DialogDescription>
+            {step === 1 ? 'اختر المستشار' : step === 2 ? 'اختر الموعد' : 'تأكيد الحجز'}
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* Step 1: Choose Consultant */}
+        {step === 1 && (
+          <div className="space-y-3 max-h-80 overflow-y-auto">
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 text-emerald-500 animate-spin" />
+              </div>
+            ) : consultants.length === 0 ? (
+              <p className="text-center text-gray-500 py-8">لا يوجد مستشارين متاحين حالياً</p>
+            ) : (
+              consultants.map(c => (
+                <button
+                  key={c.id}
+                  onClick={() => { setSelectedConsultant(c.id); setStep(2); }}
+                  className={`w-full text-right p-3 rounded-lg border-2 transition-colors ${
+                    selectedConsultant === c.id
+                      ? 'border-emerald-500 bg-emerald-50'
+                      : 'border-gray-200 hover:border-emerald-300 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                      <User className="w-5 h-5 text-emerald-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium">{c.user.name}</p>
+                      <p className="text-sm text-gray-500">{c.specialty.nameAr}</p>
+                    </div>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* Step 2: Choose Date & Time */}
+        {step === 2 && (
+          <div className="space-y-4">
+            <button
+              onClick={() => setStep(1)}
+              className="text-sm text-emerald-600 hover:underline mb-2"
+            >
+              &larr; رجوع لاختيار المستشار
+            </button>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">التاريخ</label>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={e => { setSelectedDate(e.target.value); setSelectedStartTime(''); setSelectedEndTime(''); }}
+                min={new Date().toISOString().split('T')[0]}
+                className="w-full border rounded-lg p-2 text-right"
+              />
+            </div>
+
+            {selectedDate && (
+              <div>
+                <label className="block text-sm font-medium mb-1">الموعد المتاح</label>
+                {loading ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="w-5 h-5 text-emerald-500 animate-spin" />
+                  </div>
+                ) : timeOptions.length === 0 ? (
+                  <p className="text-sm text-gray-500 py-2">لا توجد مواعيد متاحة في هذا اليوم</p>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2 max-h-40 overflow-y-auto">
+                    {timeOptions.map((opt, i) => (
+                      <button
+                        key={i}
+                        onClick={() => { setSelectedStartTime(opt.start); setSelectedEndTime(opt.end); }}
+                        className={`p-2 text-sm rounded-lg border transition-colors ${
+                          selectedStartTime === opt.start && selectedEndTime === opt.end
+                            ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                            : 'border-gray-200 hover:border-emerald-300'
+                        }`}
+                      >
+                        {opt.start} - {opt.end}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {selectedStartTime && selectedEndTime && (
+              <Button
+                onClick={() => setStep(3)}
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                التالي
+              </Button>
+            )}
+          </div>
+        )}
+
+        {/* Step 3: Confirm */}
+        {step === 3 && (
+          <div className="space-y-4">
+            <button
+              onClick={() => setStep(2)}
+              className="text-sm text-emerald-600 hover:underline mb-2"
+            >
+              &larr; رجوع لاختيار الموعد
+            </button>
+
+            <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+              <div className="flex justify-between">
+                <span className="text-gray-500">المستشار:</span>
+                <span className="font-medium">{consultants.find(c => c.id === selectedConsultant)?.user.name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">التاريخ:</span>
+                <span className="font-medium">{selectedDate}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">الوقت:</span>
+                <span className="font-medium">{selectedStartTime} - {selectedEndTime}</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">ملاحظات (اختياري)</label>
+              <textarea
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="أضف ملاحظاتك هنا..."
+                className="w-full border rounded-lg p-2 text-right min-h-[80px] resize-none"
+              />
+            </div>
+
+            <Button
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+              تأكيد الحجز
+            </Button>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -1763,248 +2064,6 @@ export function EntrepreneurFiles() {
               </CardContent>
             </Card>
           ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ========== EntrepreneurTemplates ==========
-
-interface TemplateForUser {
-  id: string;
-  nameAr: string;
-  nameEn: string;
-  descriptionAr?: string;
-  descriptionEn?: string;
-  category?: string;
-  fileName: string;
-  fileType: string;
-  fileSize: number;
-  downloadCount: number;
-  specialty?: { id: string; nameAr: string; nameEn: string } | null;
-  createdAt: string;
-}
-
-const TEMPLATE_CAT_LABELS: Record<string, string> = {
-  'business-plan': 'خطة عمل',
-  'financial': 'مالي',
-  'legal': 'قانوني',
-  'marketing': 'تسويقي',
-  'pitch-deck': 'عرض تقديمي',
-  'other': 'أخرى',
-};
-
-function formatFileSizeUser(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-}
-
-function getFileIconUser(mimeType: string): string {
-  if (mimeType.includes('pdf')) return '📄';
-  if (mimeType.includes('word') || mimeType.includes('document')) return '📝';
-  if (mimeType.includes('sheet') || mimeType.includes('excel')) return '📊';
-  if (mimeType.includes('presentation') || mimeType.includes('powerpoint')) return '📽️';
-  if (mimeType.includes('image')) return '🖼️';
-  if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('7z') || mimeType.includes('compressed')) return '📦';
-  return '📎';
-}
-
-function getFileExtColor(mimeType: string): string {
-  if (mimeType.includes('pdf')) return 'text-red-500';
-  if (mimeType.includes('word') || mimeType.includes('document')) return 'text-blue-500';
-  if (mimeType.includes('sheet') || mimeType.includes('excel')) return 'text-green-500';
-  if (mimeType.includes('presentation') || mimeType.includes('powerpoint')) return 'text-orange-500';
-  return 'text-gray-500';
-}
-
-export function EntrepreneurTemplates() {
-  const [templates, setTemplates] = useState<TemplateForUser[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [downloadingId, setDownloadingId] = useState<string | null>(null);
-  const [activeCategory, setActiveCategory] = useState<string>('all');
-
-  const loadTemplates = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await templatesApi.getTemplates();
-      if (res.success && res.data) {
-        setTemplates(res.data as TemplateForUser[]);
-      }
-    } catch {
-      // Silently handle
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadTemplates();
-  }, [loadTemplates]);
-
-  const handleDownload = async (tmpl: TemplateForUser) => {
-    setDownloadingId(tmpl.id);
-    try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(templatesApi.getDownloadUrl(tmpl.id), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!response.ok) throw new Error('Download failed');
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = tmpl.fileName;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-
-      toast.success(`تم تحميل: ${tmpl.nameAr}`);
-      // Update local download count
-      setTemplates(prev => prev.map(t =>
-        t.id === tmpl.id ? { ...t, downloadCount: t.downloadCount + 1 } : t
-      ));
-    } catch {
-      toast.error('فشل في تحميل القالب');
-    } finally {
-      setDownloadingId(null);
-    }
-  };
-
-  // Get unique categories
-  const categories = ['all', ...new Set(templates.map(t => t.category).filter(Boolean) as string[])];
-
-  // Filter by category
-  const filteredTemplates = activeCategory === 'all'
-    ? templates
-    : templates.filter(t => t.category === activeCategory);
-
-  if (loading) {
-    return (
-      <div className="p-6 space-y-4">
-        <Skeleton className="h-10 w-48" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-40 rounded-xl" />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="p-4 sm:p-6 space-y-6">
-      {/* Header */}
-      <div>
-        <h2 className="text-xl font-bold text-gray-900">القوالب الجاهزة</h2>
-        <p className="text-sm text-gray-500 mt-1">قوالب مُعدّة من فريق المنصة لتسهيل رحلتك الريادية</p>
-      </div>
-
-      {/* Category Filters */}
-      {categories.length > 1 && (
-        <div className="flex gap-2 flex-wrap">
-          {categories.map((cat) => (
-            <Button
-              key={cat}
-              variant={activeCategory === cat ? 'default' : 'outline'}
-              size="sm"
-              className={activeCategory === cat ? 'bg-emerald-600 hover:bg-emerald-700' : ''}
-              onClick={() => setActiveCategory(cat)}
-            >
-              {cat === 'all' ? 'الكل' : (TEMPLATE_CAT_LABELS[cat] || cat)}
-            </Button>
-          ))}
-        </div>
-      )}
-
-      {/* Templates Grid */}
-      {filteredTemplates.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="py-16 text-center">
-            <FileText className="w-16 h-16 text-gray-200 mx-auto mb-4" />
-            <p className="text-gray-500 font-medium text-lg">لا توجد قوالب متاحة حاليًا</p>
-            <p className="text-gray-400 text-sm mt-2">سيتم إضافة قوالب جديدة قريبًا من فريق المنصة</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredTemplates.map((tmpl) => {
-            const fileExt = tmpl.fileName.split('.').pop()?.toUpperCase() || 'FILE';
-            return (
-              <Card
-                key={tmpl.id}
-                className="border border-emerald-100 hover:shadow-lg transition-all duration-300 hover:border-emerald-200 group"
-              >
-                <CardContent className="p-5">
-                  {/* File icon + extension badge */}
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 flex items-center justify-center text-3xl group-hover:scale-110 transition-transform">
-                      {getFileIconUser(tmpl.fileType)}
-                    </div>
-                    <Badge
-                      className={`text-[10px] font-mono px-2 py-0.5 ${getFileExtColor(tmpl.fileType)} bg-gray-50 border`}
-                      variant="outline"
-                    >
-                      {fileExt}
-                    </Badge>
-                  </div>
-
-                  {/* Name */}
-                  <h3 className="font-bold text-gray-900 mb-1 line-clamp-1">{tmpl.nameAr}</h3>
-                  <p className="text-xs text-gray-400 mb-2">{tmpl.nameEn}</p>
-
-                  {/* Description */}
-                  {tmpl.descriptionAr && (
-                    <p className="text-sm text-gray-600 mb-3 line-clamp-2 leading-relaxed">{tmpl.descriptionAr}</p>
-                  )}
-
-                  {/* Meta info */}
-                  <div className="flex items-center gap-2 text-xs text-gray-400 mb-4 flex-wrap">
-                    {tmpl.category && (
-                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-emerald-50 text-emerald-700">
-                        {TEMPLATE_CAT_LABELS[tmpl.category] || tmpl.category}
-                      </Badge>
-                    )}
-                    <span>{formatFileSizeUser(tmpl.fileSize)}</span>
-                    <span>·</span>
-                    <span>{tmpl.downloadCount} تحميل</span>
-                  </div>
-
-                  {tmpl.specialty && (
-                    <div className="text-xs text-gray-400 mb-4">
-                      التخصص: {tmpl.specialty.nameAr}
-                    </div>
-                  )}
-
-                  {/* Download Button */}
-                  <Button
-                    onClick={() => handleDownload(tmpl)}
-                    disabled={downloadingId === tmpl.id}
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
-                    size="sm"
-                  >
-                    {downloadingId === tmpl.id ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin ml-2" />
-                        جاري التحميل...
-                      </>
-                    ) : (
-                      <>
-                        <Download className="w-4 h-4 ml-2" />
-                        تحميل القالب
-                      </>
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
-            );
-          })}
         </div>
       )}
     </div>

@@ -1,10 +1,11 @@
-// PATCH /api/bookings/[id] - Update booking status (cancel, complete)
+// PATCH /api/bookings/[id] - Update booking status (cancel, complete, start meeting)
 // DELETE /api/bookings/[id] - Cancel booking
 
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser, createSuccessResponse, createErrorResponse } from '@/lib/middleware'
 import { decrementQuotaUsage } from '@/lib/quotas'
+import { checkMeetingTime, generateMeetingUrl } from '@/lib/meeting-time'
 
 export async function PATCH(
   request: NextRequest,
@@ -63,22 +64,44 @@ export async function PATCH(
 
       // Decrement quota usage since booking is cancelled
       await decrementQuotaUsage(booking.entrepreneurId)
-    } else if (status === 'COMPLETED') {
+    } else if (status === 'IN_PROGRESS') {
+      // Start meeting - only allowed if within time window
       if (booking.status !== 'CONFIRMED') {
         return Response.json(
-          { success: false, error: 'Only confirmed bookings can be completed' },
+          { success: false, error: 'Only confirmed bookings can be started' },
+          { status: 400 }
+        )
+      }
+
+      // Verify meeting time
+      const timeCheck = checkMeetingTime(booking.date, booking.startTime, booking.endTime, booking.status)
+      if (!timeCheck.canJoin) {
+        return Response.json(
+          { success: false, error: timeCheck.messageAr || timeCheck.message },
+          { status: 400 }
+        )
+      }
+
+      updateData.status = 'IN_PROGRESS'
+      updateData.startedAt = new Date()
+    } else if (status === 'COMPLETED') {
+      if (booking.status !== 'CONFIRMED' && booking.status !== 'IN_PROGRESS') {
+        return Response.json(
+          { success: false, error: 'Only confirmed or in-progress bookings can be completed' },
           { status: 400 }
         )
       }
       updateData.status = 'COMPLETED'
+      updateData.endedAt = new Date()
     } else if (status === 'NO_SHOW') {
-      if (booking.status !== 'CONFIRMED') {
+      if (booking.status !== 'CONFIRMED' && booking.status !== 'IN_PROGRESS') {
         return Response.json(
-          { success: false, error: 'Only confirmed bookings can be marked as no-show' },
+          { success: false, error: 'Only confirmed or in-progress bookings can be marked as no-show' },
           { status: 400 }
         )
       }
       updateData.status = 'NO_SHOW'
+      updateData.endedAt = new Date()
     } else {
       return Response.json(
         { success: false, error: 'Invalid status value' },
@@ -107,22 +130,29 @@ export async function PATCH(
     // Notify the other party about status change
     const notifyUserId = isEntrepreneur || isAdmin ? booking.consultant.userId : booking.entrepreneur.user.id
     const statusMessages: Record<string, string> = {
-      CANCELLED: `Booking on ${booking.date} has been cancelled. ${cancellationReason || ''}`,
-      COMPLETED: `Booking on ${booking.date} has been marked as completed.`,
-      NO_SHOW: `Booking on ${booking.date} has been marked as no-show.`,
+      CANCELLED: `حجز ${booking.date} تم إلغاؤه. ${cancellationReason || ''}`,
+      IN_PROGRESS: `اجتماع ${booking.date} بدأ الآن.`,
+      COMPLETED: `اجتماع ${booking.date} اكتمل.`,
+      NO_SHOW: `اجتماع ${booking.date} تم تسجيله كحضور متأخر.`,
     }
 
     await db.notification.create({
       data: {
         userId: notifyUserId,
-        title: 'Booking Updated',
-        message: statusMessages[status] || `Booking status updated to ${status}`,
+        title: 'تحديث الحجز',
+        message: statusMessages[status] || `تم تحديث حالة الحجز إلى ${status}`,
         type: status === 'COMPLETED' ? 'success' : status === 'CANCELLED' ? 'warning' : 'info',
         link: '/bookings',
       },
     })
 
-    return createSuccessResponse(updated)
+    // Add meetingUrl to response
+    const updatedWithUrl = {
+      ...updated,
+      meetingUrl: updated.meetingRoomId ? generateMeetingUrl(updated.meetingRoomId) : null,
+    }
+
+    return createSuccessResponse(updatedWithUrl)
   } catch (error) {
     console.error('Update booking error:', error)
     return createErrorResponse('Internal server error', 500)
@@ -194,8 +224,8 @@ export async function DELETE(
     await db.notification.create({
       data: {
         userId: notifyUserId,
-        title: 'Booking Cancelled',
-        message: `Booking on ${booking.date} from ${booking.startTime} to ${booking.endTime} has been cancelled.`,
+        title: 'إلغاء الحجز',
+        message: `حجز ${booking.date} من ${booking.startTime} إلى ${booking.endTime} تم إلغاؤه.`,
         type: 'warning',
         link: '/bookings',
       },

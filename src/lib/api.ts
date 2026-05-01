@@ -206,42 +206,6 @@ export const authApi = {
    * Get current authenticated user profile
    */
   me: () => request<MeResponse>('/auth/me'),
-
-  /**
-   * Request password reset email
-   */
-  forgotPassword: (email: string) =>
-    request<{ message: string }>('/auth/forgot-password', {
-      method: 'POST',
-      body: JSON.stringify({ email }),
-    }),
-
-  /**
-   * Reset password with token from email
-   */
-  resetPassword: (token: string, password: string) =>
-    request<{ message: string }>('/auth/reset-password', {
-      method: 'POST',
-      body: JSON.stringify({ token, password }),
-    }),
-
-  /**
-   * Verify email with token from email
-   */
-  verifyEmail: (token: string) =>
-    request<{ message: string; email: string }>('/auth/verify-email', {
-      method: 'POST',
-      body: JSON.stringify({ token }),
-    }),
-
-  /**
-   * Resend email verification
-   */
-  resendVerification: (email: string) =>
-    request<{ message: string }>('/auth/resend-verification', {
-      method: 'POST',
-      body: JSON.stringify({ email }),
-    }),
 };
 
 // ========== Milestones API ==========
@@ -317,7 +281,7 @@ export const bookingsApi = {
     }),
 
   /**
-   * Update booking status (cancel, complete, no-show)
+   * Update booking status (cancel, start, complete, no-show)
    */
   updateBooking: (
     id: string,
@@ -329,24 +293,10 @@ export const bookingsApi = {
     }),
 
   /**
-   * Get consultant availability slots by consultant profile ID
+   * Get consultant availability slots
    */
   getAvailability: (consultantId: string) =>
     request<unknown[]>(`/bookings/availability${buildQuery({ consultantId })}`),
-
-  /**
-   * Get my availability (consultant only — server resolves profile automatically)
-   */
-  getMyAvailability: () =>
-    request<unknown[]>('/bookings/availability?consultantId=me'),
-
-  /**
-   * Delete a single availability slot (soft delete)
-   */
-  deleteAvailabilitySlot: (slotId: string) =>
-    request<{ message: string }>(`/bookings/availability/${slotId}`, {
-      method: 'DELETE',
-    }),
 
   /**
    * Set availability slots (consultant only)
@@ -372,6 +322,16 @@ export const bookingsApi = {
       method: 'POST',
       body: JSON.stringify({ month }),
     }),
+};
+
+// ========== Meetings API ==========
+
+export const meetingsApi = {
+  /**
+   * Get meeting room info and check access
+   */
+  getMeetingInfo: (roomId: string) =>
+    request<unknown>(`/meetings/${roomId}`),
 };
 
 // ========== Chat API ==========
@@ -543,7 +503,7 @@ export const adminApi = {
    * Soft-delete a specialty (sets isActive = false)
    */
   deleteSpecialty: (id: string) =>
-    request<{ message: string }>(`/admin/specialties?id=${encodeURIComponent(id)}`, {
+    request<{ message: string }>(`/admin/specialties?id=${id}`, {
       method: 'DELETE',
     }),
 
@@ -595,7 +555,7 @@ export const adminApi = {
    * Soft-delete a milestone default (sets isActive = false)
    */
   deleteMilestoneDefault: (id: string) =>
-    request<{ message: string }>(`/admin/milestones?id=${encodeURIComponent(id)}`, {
+    request<{ message: string }>(`/admin/milestones?id=${id}`, {
       method: 'DELETE',
     }),
 
@@ -651,65 +611,6 @@ export const adminApi = {
     request<unknown>(
       `/admin/chat${buildQuery(params as Record<string, string | number | undefined>)}`
     ),
-
-  // --- Templates (Admin) ---
-  /**
-   * List all templates (admin view, includes inactive)
-   */
-  getTemplates: (includeInactive?: boolean) =>
-    request<unknown[]>(
-      `/admin/templates${buildQuery({ includeInactive: includeInactive || undefined })}`
-    ),
-
-  /**
-   * Create a template with file upload
-   */
-  createTemplate: (formData: FormData) =>
-    uploadRequest<unknown>('/admin/templates', formData),
-
-  /**
-   * Update a template (metadata only)
-   */
-  updateTemplate: (data: {
-    id: string;
-    nameAr?: string;
-    nameEn?: string;
-    descriptionAr?: string;
-    descriptionEn?: string;
-    category?: string;
-    specialtyId?: string | null;
-    sortOrder?: number;
-    isActive?: boolean;
-  }) =>
-    request<unknown>('/admin/templates', {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    }),
-
-  /**
-   * Soft-delete a template (sets isActive = false)
-   */
-  deleteTemplate: (id: string) =>
-    request<{ message: string }>(`/admin/templates?id=${encodeURIComponent(id)}`, {
-      method: 'DELETE',
-    }),
-};
-
-// ========== Templates API (User-facing) ==========
-
-export const templatesApi = {
-  /**
-   * List active templates (for entrepreneurs/consultants)
-   */
-  getTemplates: (params?: { category?: string; specialtyId?: string }) =>
-    request<unknown[]>(
-      `/templates${buildQuery(params as Record<string, string | undefined>)}`
-    ),
-
-  /**
-   * Get download URL for a template
-   */
-  getDownloadUrl: (id: string) => `/api/templates/${encodeURIComponent(id)}/download`,
 };
 
 // ========== Notifications API ==========

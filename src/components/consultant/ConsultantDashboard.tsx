@@ -11,7 +11,7 @@ import {
   Users,
   MessageCircle,
   LogOut,
-  Compass,
+  Rocket,
   CheckCircle2,
   Clock,
   FileText,
@@ -39,7 +39,6 @@ import {
   bookingsApi,
   chatApi,
   filesApi,
-  templatesApi,
 } from '@/lib/api';
 
 import { Button } from '@/components/ui/button';
@@ -179,8 +178,9 @@ interface BookingItem {
   date: string;
   startTime: string;
   endTime: string;
-  status: 'CONFIRMED' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW';
-  meetingLink?: string;
+  status: 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW';
+  meetingRoomId?: string;
+  meetingUrl?: string;
   notes?: string;
   cancellationReason?: string;
   consultant: BookingConsultant;
@@ -212,9 +212,6 @@ interface AvailabilitySlot {
   endTime: string;
   slotDuration: number;
   consultantId: string;
-  isRecurring: boolean;
-  specificDate: string | null;
-  isActive: boolean;
 }
 
 interface ChatRoomMember {
@@ -264,6 +261,7 @@ const MILESTONE_STATUS_MAP: Record<string, { label: string; color: string; bgCol
 
 const BOOKING_STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   CONFIRMED: { label: 'مؤكد', variant: 'default' },
+  IN_PROGRESS: { label: 'جاري', variant: 'default' },
   COMPLETED: { label: 'مكتمل', variant: 'secondary' },
   CANCELLED: { label: 'ملغى', variant: 'destructive' },
   NO_SHOW: { label: 'لم يحضر', variant: 'outline' },
@@ -345,32 +343,26 @@ const CONSULTANT_NAV_ITEMS: NavItem[] = [
   { label: 'لوحة التحكم', icon: LayoutDashboard, view: 'consultant-dashboard' },
   { label: 'المواعيد والجدولة', icon: Calendar, view: 'consultant-appointments' },
   { label: 'رواد الأعمال', icon: Users, view: 'consultant-entrepreneurs' },
-  { label: 'القوالب', icon: FileText, view: 'consultant-templates' },
   { label: 'المحادثات', icon: MessageCircle, view: 'consultant-chat' },
 ];
 
 export function ConsultantSidebar() {
-  const { currentView, setCurrentView, user, logout, setSidebarOpen } = useAppStore();
+  const { currentView, setCurrentView, user, logout } = useAppStore();
 
   // Extract specialty name from consultantProfile
   const consultantProfile = user?.consultantProfile as ConsultantProfile | undefined;
   const specialtyName = consultantProfile?.specialty?.nameAr || '';
 
-  const handleNav = (view: AppView) => {
-    setCurrentView(view);
-    setSidebarOpen(false); // Close mobile sidebar on navigation
-  };
-
   return (
-    <aside className="w-64 md:w-64 min-h-screen bg-gradient-to-b from-emerald-800 to-emerald-900 text-white flex flex-col shadow-xl">
+    <aside className="w-64 min-h-screen bg-gradient-to-b from-emerald-800 to-emerald-900 text-white flex flex-col shadow-xl">
       {/* Logo */}
       <div className="p-5 flex items-center gap-3 border-b border-emerald-700/50">
         <div className="w-10 h-10 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center">
-          <Compass className="w-5 h-5 text-emerald-200" />
+          <Rocket className="w-5 h-5 text-emerald-200" />
         </div>
         <div>
-          <h1 className="font-bold text-lg leading-tight">مَسَار</h1>
-          <p className="text-emerald-300 text-xs">لوحة المستشار</p>
+          <h1 className="font-bold text-lg leading-tight">الحاضنة الرقمية</h1>
+          <p className="text-emerald-300 text-xs">منصة المستشارين</p>
         </div>
       </div>
 
@@ -382,7 +374,7 @@ export function ConsultantSidebar() {
           return (
             <button
               key={item.view}
-              onClick={() => handleNav(item.view)}
+              onClick={() => setCurrentView(item.view)}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
                 isActive
                   ? 'bg-white/15 text-white shadow-lg shadow-emerald-900/30'
@@ -416,7 +408,7 @@ export function ConsultantSidebar() {
           </div>
         </div>
         <button
-          onClick={() => { setSidebarOpen(false); logout(); }}
+          onClick={logout}
           className="w-full flex items-center gap-2 px-3 py-2 text-sm text-emerald-300 hover:text-white hover:bg-red-500/20 rounded-lg transition-colors"
         >
           <LogOut className="w-4 h-4" />
@@ -441,8 +433,6 @@ export function ConsultantMainView() {
       return <ConsultantEntrepreneurs />;
     case 'consultant-chat':
       return <ConsultantChat />;
-    case 'consultant-templates':
-      return <ConsultantTemplatesView />;
     default:
       return <ConsultantOverview />;
   }
@@ -586,7 +576,7 @@ export function ConsultantOverview() {
         <h2 className="text-2xl font-bold text-gray-900">
           مرحباً، {user?.name || 'المستشار'} 👋
         </h2>
-        <p className="text-muted-foreground mt-1">إليك نظرة عامة على عملك في مبادرة مَسَار</p>
+        <p className="text-muted-foreground mt-1">إليك نظرة عامة على عملك في الحاضنة</p>
       </div>
 
       {/* Stat cards */}
@@ -749,9 +739,8 @@ export function ConsultantSchedule() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      // Use the profile-aware endpoint (consultantId=me resolves on server)
       const [availRes, bookRes] = await Promise.all([
-        user?.id ? bookingsApi.getMyAvailability() : Promise.resolve({ success: false }),
+        user?.id ? bookingsApi.getAvailability(user.id) : Promise.resolve({ success: false }),
         bookingsApi.getBookings(),
       ]);
 
@@ -809,7 +798,19 @@ export function ConsultantSchedule() {
   const handleDeleteSlot = async (slotId: string) => {
     setActionLoading(slotId);
     try {
-      const res = await bookingsApi.deleteAvailabilitySlot(slotId);
+      // Delete by sending remaining slots (excluding the deleted one)
+      const remainingSlots = availability
+        .filter((s) => s.id !== slotId)
+        .map((s) => ({
+          dayOfWeek: s.dayOfWeek,
+          startTime: s.startTime,
+          endTime: s.endTime,
+          slotDuration: s.slotDuration,
+        }));
+
+      // We need to re-set availability without this slot
+      // Using setAvailability to overwrite
+      const res = await bookingsApi.setAvailability(remainingSlots);
       if (res.success) {
         toast.success('تم حذف الفترة');
         await loadData();
@@ -1113,17 +1114,17 @@ export function ConsultantSchedule() {
                           <div className="flex items-center gap-2 flex-shrink-0">
                             <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
 
-                            {booking.meetingLink && (
+                            {booking.meetingRoomId && (
                               <Button
                                 size="sm"
                                 variant="outline"
                                 className="text-emerald-600 border-emerald-200 hover:bg-emerald-50"
                                 onClick={() =>
-                                  window.open(booking.meetingLink!, '_blank', 'noopener,noreferrer')
+                                  window.open(`/meeting/${booking.meetingRoomId}`, '_self')
                                 }
                               >
                                 <Video className="w-4 h-4" />
-                                <span className="hidden sm:inline">جيتسي</span>
+                                <span className="hidden sm:inline">انضم</span>
                               </Button>
                             )}
 
@@ -1834,236 +1835,6 @@ export function ConsultantChat() {
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-// ========== ConsultantTemplatesView ==========
-
-interface TemplateForConsultant {
-  id: string;
-  nameAr: string;
-  nameEn: string;
-  descriptionAr?: string;
-  descriptionEn?: string;
-  category?: string;
-  fileName: string;
-  fileType: string;
-  fileSize: number;
-  downloadCount: number;
-  specialty?: { id: string; nameAr: string; nameEn: string } | null;
-  createdAt: string;
-}
-
-const TEMPLATE_CAT_LABELS_C: Record<string, string> = {
-  'business-plan': 'خطة عمل',
-  'financial': 'مالي',
-  'legal': 'قانوني',
-  'marketing': 'تسويقي',
-  'pitch-deck': 'عرض تقديمي',
-  'other': 'أخرى',
-};
-
-function formatFileSizeC(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-}
-
-function getFileIconC(mimeType: string): string {
-  if (mimeType.includes('pdf')) return '📄';
-  if (mimeType.includes('word') || mimeType.includes('document')) return '📝';
-  if (mimeType.includes('sheet') || mimeType.includes('excel')) return '📊';
-  if (mimeType.includes('presentation') || mimeType.includes('powerpoint')) return '📽️';
-  if (mimeType.includes('image')) return '🖼️';
-  if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('7z') || mimeType.includes('compressed')) return '📦';
-  return '📎';
-}
-
-function getFileExtColorC(mimeType: string): string {
-  if (mimeType.includes('pdf')) return 'text-red-500';
-  if (mimeType.includes('word') || mimeType.includes('document')) return 'text-blue-500';
-  if (mimeType.includes('sheet') || mimeType.includes('excel')) return 'text-green-500';
-  if (mimeType.includes('presentation') || mimeType.includes('powerpoint')) return 'text-orange-500';
-  return 'text-gray-500';
-}
-
-export function ConsultantTemplatesView() {
-  const [templates, setTemplates] = useState<TemplateForConsultant[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [downloadingId, setDownloadingId] = useState<string | null>(null);
-  const [activeCategory, setActiveCategory] = useState<string>('all');
-
-  const loadTemplates = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await templatesApi.getTemplates();
-      if (res.success && res.data) {
-        setTemplates(res.data as TemplateForConsultant[]);
-      }
-    } catch {
-      // Silently handle
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadTemplates();
-  }, [loadTemplates]);
-
-  const handleDownload = async (tmpl: TemplateForConsultant) => {
-    setDownloadingId(tmpl.id);
-    try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(templatesApi.getDownloadUrl(tmpl.id), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!response.ok) throw new Error('Download failed');
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = tmpl.fileName;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-
-      toast.success(`تم تحميل: ${tmpl.nameAr}`);
-      setTemplates(prev => prev.map(t =>
-        t.id === tmpl.id ? { ...t, downloadCount: t.downloadCount + 1 } : t
-      ));
-    } catch {
-      toast.error('فشل في تحميل القالب');
-    } finally {
-      setDownloadingId(null);
-    }
-  };
-
-  const categories = ['all', ...new Set(templates.map(t => t.category).filter(Boolean) as string[])];
-  const filteredTemplates = activeCategory === 'all'
-    ? templates
-    : templates.filter(t => t.category === activeCategory);
-
-  if (loading) {
-    return (
-      <div className="p-6 space-y-4">
-        <Skeleton className="h-10 w-48" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-40 rounded-xl" />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="p-4 sm:p-6 space-y-6">
-      <div>
-        <h2 className="text-xl font-bold text-gray-900">القوالب الجاهزة</h2>
-        <p className="text-sm text-gray-500 mt-1">قوالب مُعدّة من فريق المنصة لمساعدة رواد الأعمال</p>
-      </div>
-
-      {categories.length > 1 && (
-        <div className="flex gap-2 flex-wrap">
-          {categories.map((cat) => (
-            <Button
-              key={cat}
-              variant={activeCategory === cat ? 'default' : 'outline'}
-              size="sm"
-              className={activeCategory === cat ? 'bg-emerald-600 hover:bg-emerald-700' : ''}
-              onClick={() => setActiveCategory(cat)}
-            >
-              {cat === 'all' ? 'الكل' : (TEMPLATE_CAT_LABELS_C[cat] || cat)}
-            </Button>
-          ))}
-        </div>
-      )}
-
-      {filteredTemplates.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="py-16 text-center">
-            <FileText className="w-16 h-16 text-gray-200 mx-auto mb-4" />
-            <p className="text-gray-500 font-medium text-lg">لا توجد قوالب متاحة حاليًا</p>
-            <p className="text-gray-400 text-sm mt-2">سيتم إضافة قوالب جديدة قريبًا من فريق المنصة</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredTemplates.map((tmpl) => {
-            const fileExt = tmpl.fileName.split('.').pop()?.toUpperCase() || 'FILE';
-            return (
-              <Card
-                key={tmpl.id}
-                className="border border-emerald-100 hover:shadow-lg transition-all duration-300 hover:border-emerald-200 group"
-              >
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 flex items-center justify-center text-3xl group-hover:scale-110 transition-transform">
-                      {getFileIconC(tmpl.fileType)}
-                    </div>
-                    <Badge
-                      className={`text-[10px] font-mono px-2 py-0.5 ${getFileExtColorC(tmpl.fileType)} bg-gray-50 border`}
-                      variant="outline"
-                    >
-                      {fileExt}
-                    </Badge>
-                  </div>
-
-                  <h3 className="font-bold text-gray-900 mb-1 line-clamp-1">{tmpl.nameAr}</h3>
-                  <p className="text-xs text-gray-400 mb-2">{tmpl.nameEn}</p>
-
-                  {tmpl.descriptionAr && (
-                    <p className="text-sm text-gray-600 mb-3 line-clamp-2 leading-relaxed">{tmpl.descriptionAr}</p>
-                  )}
-
-                  <div className="flex items-center gap-2 text-xs text-gray-400 mb-4 flex-wrap">
-                    {tmpl.category && (
-                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-emerald-50 text-emerald-700">
-                        {TEMPLATE_CAT_LABELS_C[tmpl.category] || tmpl.category}
-                      </Badge>
-                    )}
-                    <span>{formatFileSizeC(tmpl.fileSize)}</span>
-                    <span>·</span>
-                    <span>{tmpl.downloadCount} تحميل</span>
-                  </div>
-
-                  {tmpl.specialty && (
-                    <div className="text-xs text-gray-400 mb-4">
-                      التخصص: {tmpl.specialty.nameAr}
-                    </div>
-                  )}
-
-                  <Button
-                    onClick={() => handleDownload(tmpl)}
-                    disabled={downloadingId === tmpl.id}
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
-                    size="sm"
-                  >
-                    {downloadingId === tmpl.id ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin ml-2" />
-                        جاري التحميل...
-                      </>
-                    ) : (
-                      <>
-                        <Download className="w-4 h-4 ml-2" />
-                        تحميل القالب
-                      </>
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 }

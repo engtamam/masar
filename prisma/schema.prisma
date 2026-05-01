@@ -29,18 +29,8 @@ model User {
   avatarUrl    String?
   phone        String?
   isActive     Boolean  @default(true)
-
-  // Email verification
-  emailVerified      Boolean  @default(false)
-  emailVerifyToken   String?  @unique
-  emailVerifyExpires DateTime?
-
-  // Password reset
-  passwordResetToken   String?  @unique
-  passwordResetExpires DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   // Relations
   consultantProfile   ConsultantProfile?
@@ -99,7 +89,6 @@ model Specialty {
   // Relations
   consultants       ConsultantProfile[]
   milestoneDefaults MilestoneDefault[]
-  templates         Template[]
 
   @@map("specialties")
 }
@@ -237,9 +226,11 @@ model Booking {
   startTime           String        // HH:mm
   endTime             String        // HH:mm
   status              BookingStatus @default(CONFIRMED)
-  meetingLink         String?       // Jitsi Meet link
+  meetingRoomId       String?       // Local meeting room ID (replaces Jitsi)
   notes               String?
   cancellationReason  String?
+  startedAt           DateTime?     // When the call actually started
+  endedAt             DateTime?     // When the call actually ended
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
 
@@ -252,6 +243,7 @@ model Booking {
 
 enum BookingStatus {
   CONFIRMED
+  IN_PROGRESS
   COMPLETED
   CANCELLED
   NO_SHOW
@@ -398,33 +390,6 @@ enum ConfigType {
   NUMBER
   BOOLEAN
   JSON
-}
-
-// ============================================================================
-// TEMPLATE SYSTEM (Admin-uploaded downloadable templates)
-// ============================================================================
-
-model Template {
-  id            String  @id @default(cuid())
-  nameAr        String
-  nameEn        String
-  descriptionAr String?
-  descriptionEn String?
-  category      String? // e.g., "business-plan", "financial", "legal", "marketing", "pitch-deck"
-  specialtyId   String? // optional link to a specialty
-  fileName      String  // original uploaded file name
-  filePath      String  // stored file path on disk
-  fileType      String  // MIME type
-  fileSize      Int     // size in bytes
-  isActive      Boolean @default(true)
-  sortOrder     Int     @default(0)
-  downloadCount Int     @default(0)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  specialty Specialty? @relation(fields: [specialtyId], references: [id], onDelete: SetNull)
-
-  @@map("templates")
 }
 
 // ============================================================================

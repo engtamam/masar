@@ -18,14 +18,14 @@
         X-XSS-Protection "1; mode=block"
         # Referrer policy
         Referrer-Policy "strict-origin-when-cross-origin"
-        # Content Security Policy (adjust as needed)
-        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' https://fonts.gstatic.com https://fonts.googleapis.com; connect-src 'self' wss: ws: https:; frame-src https://meet.jit.si"
-        # Permissions policy
+        # Content Security Policy (camera/microphone allowed for WebRTC video calls)
+        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' https://fonts.gstatic.com https://fonts.googleapis.com; connect-src 'self' wss: ws: https:; media-src 'self' blob:; frame-src 'self'"
+        # Permissions policy (camera + microphone enabled for WebRTC video calls)
         Permissions-Policy "camera=(self), microphone=(self), geolocation=()"
     }
 
-    # WebSocket support for chat service
-    handle /ws/* {
+    # WebSocket support for chat + meeting signaling (Socket.IO)
+    handle /socket.io/* {
         reverse_proxy chat:3003
     }
 

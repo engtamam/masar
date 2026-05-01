@@ -1,11 +1,11 @@
 // GET /api/bookings - List bookings (filtered by role)
-// POST /api/bookings - Create booking (checks quota, generates Jitsi link)
+// POST /api/bookings - Create booking (checks quota, generates local meeting room)
 
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser, createSuccessResponse, createErrorResponse } from '@/lib/middleware'
 import { checkQuota, incrementQuotaUsage } from '@/lib/quotas'
-import { generateJitsiLink } from '@/lib/jitsi'
+import { generateMeetingRoomId, generateMeetingUrl } from '@/lib/meeting-time'
 
 export async function GET(request: NextRequest) {
   try {
@@ -71,8 +71,14 @@ export async function GET(request: NextRequest) {
       db.booking.count({ where }),
     ])
 
+    // Add meetingUrl to each booking for frontend convenience
+    const bookingsWithUrl = bookings.map(booking => ({
+      ...booking,
+      meetingUrl: booking.meetingRoomId ? generateMeetingUrl(booking.meetingRoomId) : null,
+    }))
+
     return createSuccessResponse({
-      bookings,
+      bookings: bookingsWithUrl,
       pagination: {
         page,
         limit,
@@ -105,20 +111,26 @@ export async function POST(request: NextRequest) {
       return createErrorResponse('INVALID_INPUT')
     }
 
-    // Validate date format and not in the past
-    const dateRegex = /^\d{4}-\d{2}-\d{2}$/
-    if (!dateRegex.test(date)) {
+    // Validate date format (YYYY-MM-DD)
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return Response.json(
-        { success: false, error: 'Invalid date format, use YYYY-MM-DD' },
+        { success: false, error: 'Invalid date format. Use YYYY-MM-DD.' },
         { status: 400 }
       )
     }
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const bookingDate = new Date(date + 'T00:00:00')
-    if (bookingDate < today) {
+
+    // Validate time format (HH:mm)
+    if (!/^\d{2}:\d{2}$/.test(startTime) || !/^\d{2}:\d{2}$/.test(endTime)) {
       return Response.json(
-        { success: false, error: 'Cannot book a date in the past' },
+        { success: false, error: 'Invalid time format. Use HH:mm.' },
+        { status: 400 }
+      )
+    }
+
+    // Validate startTime < endTime
+    if (startTime >= endTime) {
+      return Response.json(
+        { success: false, error: 'Start time must be before end time.' },
         { status: 400 }
       )
     }
@@ -151,7 +163,7 @@ export async function POST(request: NextRequest) {
       where: {
         consultantId,
         date,
-        status: { in: ['CONFIRMED'] },
+        status: { in: ['CONFIRMED', 'IN_PROGRESS'] },
         OR: [
           {
             startTime: { lte: startTime },
@@ -172,8 +184,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Generate Jitsi meeting link
-    const meetingLink = await generateJitsiLink(milestoneProgressId || undefined)
+    // Generate local meeting room ID (replaces Jitsi)
+    const meetingRoomId = generateMeetingRoomId()
 
     // Create booking
     const booking = await db.booking.create({
@@ -185,7 +197,7 @@ export async function POST(request: NextRequest) {
         startTime,
         endTime,
         status: 'CONFIRMED',
-        meetingLink,
+        meetingRoomId,
         notes: notes || null,
       },
       include: {
@@ -217,14 +229,20 @@ export async function POST(request: NextRequest) {
     await db.notification.create({
       data: {
         userId: consultant.userId,
-        title: 'New Booking',
-        message: `${user.name} has booked a consultation with you on ${date} from ${startTime} to ${endTime}.`,
+        title: 'حجز جديد',
+        message: `${user.name} حجز جلسة استشارية معك في ${date} من ${startTime} إلى ${endTime}.`,
         type: 'info',
         link: '/bookings',
       },
     })
 
-    return createSuccessResponse(booking, 201)
+    // Return booking with meeting URL
+    const bookingWithUrl = {
+      ...booking,
+      meetingUrl: generateMeetingUrl(meetingRoomId),
+    }
+
+    return createSuccessResponse(bookingWithUrl, 201)
   } catch (error) {
     console.error('Create booking error:', error)
     return createErrorResponse('Internal server error', 500)
