@@ -31,7 +31,6 @@ import {
   Plus,
   Paperclip,
   ExternalLink,
-  User,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -57,7 +56,6 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog,
-  DialogTrigger,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -158,9 +156,8 @@ interface BookingItem {
   date: string;
   startTime: string;
   endTime: string;
-  status: 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW';
-  meetingRoomId?: string;
-  meetingUrl?: string;
+  status: 'CONFIRMED' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW';
+  meetingLink?: string;
   notes?: string;
   cancellationReason?: string;
   consultant: BookingConsultant;
@@ -245,7 +242,6 @@ const MILESTONE_STATUS_MAP: Record<string, { label: string; color: string; bgCol
 
 const BOOKING_STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   CONFIRMED: { label: 'مؤكد', variant: 'default' },
-  IN_PROGRESS: { label: 'جاري', variant: 'default' },
   COMPLETED: { label: 'مكتمل', variant: 'secondary' },
   CANCELLED: { label: 'ملغى', variant: 'destructive' },
   NO_SHOW: { label: 'لم يحضر', variant: 'outline' },
@@ -635,6 +631,7 @@ export function JourneyView() {
   const [data, setData] = useState<MilestonesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const manuallyClosedRef = useRef(false);
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState(false);
@@ -669,9 +666,9 @@ export function JourneyView() {
     (p) => p.status === 'IN_PROGRESS' || p.status === 'SUBMITTED'
   )?.id;
 
-  // Auto-expand the active milestone on first load
+  // Auto-expand the active milestone on first load only
   useEffect(() => {
-    if (activeMilestoneId && !expandedId) {
+    if (activeMilestoneId && !expandedId && !manuallyClosedRef.current) {
       setExpandedId(activeMilestoneId);
     }
   }, [activeMilestoneId, expandedId]);
@@ -773,7 +770,13 @@ export function JourneyView() {
                 }`}
                 onClick={() => {
                   if (mp.status !== 'LOCKED') {
-                    setExpandedId(isExpanded ? null : mp.id);
+                    if (isExpanded) {
+                      manuallyClosedRef.current = true;
+                      setExpandedId(null);
+                    } else {
+                      manuallyClosedRef.current = false;
+                      setExpandedId(mp.id);
+                    }
                   }
                 }}
                 role="button"
@@ -861,6 +864,7 @@ export function JourneyView() {
                           className="mt-3 bg-emerald-600 hover:bg-emerald-700 text-white"
                           onClick={(e) => {
                             e.stopPropagation();
+                            manuallyClosedRef.current = false;
                             setExpandedId(mp.id);
                           }}
                         >
@@ -1114,8 +1118,8 @@ export function EntrepreneurBookings() {
     }
   };
 
-  const openMeetingRoom = (roomId: string) => {
-    window.open(`/meeting/${roomId}`, '_self');
+  const openJitsiLink = (link: string) => {
+    window.open(link, '_blank', 'noopener,noreferrer');
   };
 
   if (loading) {
@@ -1131,10 +1135,7 @@ export function EntrepreneurBookings() {
 
   return (
     <div className="p-4 sm:p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">حجوزاتي</h2>
-        <NewBookingDialog onBookingCreated={loadBookings} />
-      </div>
+      <h2 className="text-2xl font-bold text-gray-900 mb-6">حجوزاتي</h2>
 
       {bookings.length === 0 ? (
         <Card>
@@ -1180,12 +1181,12 @@ export function EntrepreneurBookings() {
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
 
-                      {(booking.status === 'CONFIRMED' || booking.status === 'IN_PROGRESS') && booking.meetingRoomId && (
+                      {booking.status === 'CONFIRMED' && booking.meetingLink && (
                         <Button
                           size="sm"
                           variant="outline"
                           className="text-emerald-600 border-emerald-200 hover:bg-emerald-50"
-                          onClick={() => openMeetingRoom(booking.meetingRoomId!)}
+                          onClick={() => openJitsiLink(booking.meetingLink!)}
                         >
                           <Video className="w-4 h-4" />
                           <span className="hidden sm:inline">انضم</span>
@@ -1253,310 +1254,6 @@ export function EntrepreneurBookings() {
   );
 }
 
-// ========== 5b. NewBookingDialog ==========
-
-interface ConsultantOption {
-  id: string;
-  user: { name: string; avatarUrl?: string | null };
-  specialty: { nameAr: string; nameEn: string };
-  rating: number;
-}
-
-interface AvailabilitySlot {
-  id: string;
-  dayOfWeek: number;
-  startTime: string;
-  endTime: string;
-  slotDuration: number;
-  specificDate?: string | null;
-}
-
-function NewBookingDialog({ onBookingCreated }: { onBookingCreated: () => void }) {
-  const [open, setOpen] = useState(false);
-  const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [consultants, setConsultants] = useState<ConsultantOption[]>([]);
-  const [selectedConsultant, setSelectedConsultant] = useState<string | null>(null);
-  const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
-  const [selectedDate, setSelectedDate] = useState<string>('');
-  const [selectedStartTime, setSelectedStartTime] = useState<string>('');
-  const [selectedEndTime, setSelectedEndTime] = useState<string>('');
-  const [notes, setNotes] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-
-  const DAY_NAMES = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
-
-  // Load consultants when dialog opens
-  useEffect(() => {
-    if (!open) return;
-    setStep(1);
-    setSelectedConsultant(null);
-    setSelectedDate('');
-    setSelectedStartTime('');
-    setSelectedEndTime('');
-    setNotes('');
-
-    async function loadConsultants() {
-      setLoading(true);
-      try {
-        const res = await fetch('/api/admin/users?role=CONSULTANT&page=1&limit=100', {
-          headers: {},
-        });
-        const result = await res.json();
-        if (result.success && result.data) {
-          const usersData = result.data as { users: ConsultantOption[] };
-          setConsultants(usersData.users || []);
-        }
-      } catch {
-        // Silently handle
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadConsultants();
-  }, [open]);
-
-  // Load availability when consultant is selected
-  useEffect(() => {
-    if (!selectedConsultant) return;
-
-    async function loadAvailability() {
-      setLoading(true);
-      try {
-        const res = await bookingsApi.getAvailability(selectedConsultant!);
-        if (res.success && res.data) {
-          setAvailability(res.data as AvailabilitySlot[]);
-        }
-      } catch {
-        // Silently handle
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadAvailability();
-  }, [selectedConsultant]);
-
-  // Get available time slots for selected date
-  const availableSlotsForDate = availability.filter(slot => {
-    if (slot.specificDate) return slot.specificDate === selectedDate;
-    if (!selectedDate) return false;
-    const dayOfWeek = new Date(selectedDate + 'T00:00:00').getDay();
-    return slot.dayOfWeek === dayOfWeek;
-  });
-
-  // Generate time options from availability
-  const timeOptions: { start: string; end: string }[] = [];
-  availableSlotsForDate.forEach(slot => {
-    const [startH, startM] = slot.startTime.split(':').map(Number);
-    const duration = slot.slotDuration || 30;
-    const totalMinutes = startH * 60 + startM;
-    const [endH, endM] = slot.endTime.split(':').map(Number);
-    const endMinutes = endH * 60 + endM;
-
-    let current = totalMinutes;
-    while (current + duration <= endMinutes) {
-      const h = Math.floor(current / 60);
-      const m = current % 60;
-      const endSlot = current + duration;
-      const eh = Math.floor(endSlot / 60);
-      const em = endSlot % 60;
-      timeOptions.push({
-        start: `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`,
-        end: `${eh.toString().padStart(2, '0')}:${em.toString().padStart(2, '0')}`,
-      });
-      current += duration;
-    }
-  });
-
-  const handleSubmit = async () => {
-    if (!selectedConsultant || !selectedDate || !selectedStartTime || !selectedEndTime) return;
-
-    setSubmitting(true);
-    try {
-      const res = await bookingsApi.createBooking({
-        consultantId: selectedConsultant,
-        date: selectedDate,
-        startTime: selectedStartTime,
-        endTime: selectedEndTime,
-        notes: notes || undefined,
-      });
-
-      if (res.success) {
-        toast.success('تم إنشاء الحجز بنجاح');
-        setOpen(false);
-        onBookingCreated();
-      } else {
-        toast.error(res.error || 'فشل في إنشاء الحجز');
-      }
-    } catch {
-      toast.error('حدث خطأ غير متوقع');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button className="bg-emerald-600 hover:bg-emerald-700 text-white">
-          <Plus className="w-4 h-4" />
-          حجز جديد
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>حجز جلسة استشارية</DialogTitle>
-          <DialogDescription>
-            {step === 1 ? 'اختر المستشار' : step === 2 ? 'اختر الموعد' : 'تأكيد الحجز'}
-          </DialogDescription>
-        </DialogHeader>
-
-        {/* Step 1: Choose Consultant */}
-        {step === 1 && (
-          <div className="space-y-3 max-h-80 overflow-y-auto">
-            {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-6 h-6 text-emerald-500 animate-spin" />
-              </div>
-            ) : consultants.length === 0 ? (
-              <p className="text-center text-gray-500 py-8">لا يوجد مستشارين متاحين حالياً</p>
-            ) : (
-              consultants.map(c => (
-                <button
-                  key={c.id}
-                  onClick={() => { setSelectedConsultant(c.id); setStep(2); }}
-                  className={`w-full text-right p-3 rounded-lg border-2 transition-colors ${
-                    selectedConsultant === c.id
-                      ? 'border-emerald-500 bg-emerald-50'
-                      : 'border-gray-200 hover:border-emerald-300 hover:bg-gray-50'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
-                      <User className="w-5 h-5 text-emerald-600" />
-                    </div>
-                    <div>
-                      <p className="font-medium">{c.user.name}</p>
-                      <p className="text-sm text-gray-500">{c.specialty.nameAr}</p>
-                    </div>
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
-        )}
-
-        {/* Step 2: Choose Date & Time */}
-        {step === 2 && (
-          <div className="space-y-4">
-            <button
-              onClick={() => setStep(1)}
-              className="text-sm text-emerald-600 hover:underline mb-2"
-            >
-              &larr; رجوع لاختيار المستشار
-            </button>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">التاريخ</label>
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={e => { setSelectedDate(e.target.value); setSelectedStartTime(''); setSelectedEndTime(''); }}
-                min={new Date().toISOString().split('T')[0]}
-                className="w-full border rounded-lg p-2 text-right"
-              />
-            </div>
-
-            {selectedDate && (
-              <div>
-                <label className="block text-sm font-medium mb-1">الموعد المتاح</label>
-                {loading ? (
-                  <div className="flex items-center justify-center py-4">
-                    <Loader2 className="w-5 h-5 text-emerald-500 animate-spin" />
-                  </div>
-                ) : timeOptions.length === 0 ? (
-                  <p className="text-sm text-gray-500 py-2">لا توجد مواعيد متاحة في هذا اليوم</p>
-                ) : (
-                  <div className="grid grid-cols-3 gap-2 max-h-40 overflow-y-auto">
-                    {timeOptions.map((opt, i) => (
-                      <button
-                        key={i}
-                        onClick={() => { setSelectedStartTime(opt.start); setSelectedEndTime(opt.end); }}
-                        className={`p-2 text-sm rounded-lg border transition-colors ${
-                          selectedStartTime === opt.start && selectedEndTime === opt.end
-                            ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                            : 'border-gray-200 hover:border-emerald-300'
-                        }`}
-                      >
-                        {opt.start} - {opt.end}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {selectedStartTime && selectedEndTime && (
-              <Button
-                onClick={() => setStep(3)}
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
-              >
-                التالي
-              </Button>
-            )}
-          </div>
-        )}
-
-        {/* Step 3: Confirm */}
-        {step === 3 && (
-          <div className="space-y-4">
-            <button
-              onClick={() => setStep(2)}
-              className="text-sm text-emerald-600 hover:underline mb-2"
-            >
-              &larr; رجوع لاختيار الموعد
-            </button>
-
-            <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-              <div className="flex justify-between">
-                <span className="text-gray-500">المستشار:</span>
-                <span className="font-medium">{consultants.find(c => c.id === selectedConsultant)?.user.name}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">التاريخ:</span>
-                <span className="font-medium">{selectedDate}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">الوقت:</span>
-                <span className="font-medium">{selectedStartTime} - {selectedEndTime}</span>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">ملاحظات (اختياري)</label>
-              <textarea
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
-                placeholder="أضف ملاحظاتك هنا..."
-                className="w-full border rounded-lg p-2 text-right min-h-[80px] resize-none"
-              />
-            </div>
-
-            <Button
-              onClick={handleSubmit}
-              disabled={submitting}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
-            >
-              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-              تأكيد الحجز
-            </Button>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 // ========== 6. EntrepreneurChat ==========
 
 export function EntrepreneurChat() {
@@ -1603,7 +1300,7 @@ export function EntrepreneurChat() {
     async function loadMessages() {
       setLoadingMessages(true);
       try {
-        const res = await chatApi.getMessages(activeChatRoomId!);
+        const res = await chatApi.getMessages(activeChatRoomId);
         if (res.success && res.data) {
           const data = res.data as { messages: ChatMessageItem[] };
           setMessages(data.messages || []);
