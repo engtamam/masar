@@ -8,7 +8,6 @@ const DEFAULTS: Record<string, { value: string; type: 'STRING' | 'NUMBER' | 'BOO
   PLATFORM_NAME: { value: 'Digital Incubator', type: 'STRING', description: 'Platform display name' },
   DEFAULT_MONTHLY_QUOTA: { value: '4', type: 'NUMBER', description: 'Default monthly booking limit for entrepreneurs' },
   DEFAULT_SLOT_DURATION: { value: '30', type: 'NUMBER', description: 'Default consultation slot duration in minutes' },
-  JITSI_DOMAIN: { value: '', type: 'STRING', description: 'DEPRECATED - No longer used. Video calls are now local via WebRTC' },
   ENCRYPTION_KEY: { value: 'default-encryption-key-change-me', type: 'STRING', description: 'AES encryption key for file encryption' },
   UPLOAD_MAX_SIZE_MB: { value: '10', type: 'NUMBER', description: 'Maximum file upload size in MB' },
   ALLOWED_FILE_TYPES: { value: '["pdf","doc","docx","xls","xlsx","ppt","pptx","jpg","jpeg","png","zip"]', type: 'JSON', description: 'Allowed file type extensions' },
