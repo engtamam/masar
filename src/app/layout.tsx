@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Toaster } from "@/components/ui/sonner";
 
 export const metadata: Metadata = {
   title: "مَسَار - مبادرة لدعم رواد الأعمال الناشئين",
@@ -25,7 +24,6 @@ export default function RootLayout({
       </head>
       <body className="font-['Noto_Sans_Arabic',sans-serif] antialiased bg-background text-foreground">
         {children}
-        <Toaster position="top-left" richColors />
       </body>
     </html>
   );

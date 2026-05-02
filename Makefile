@@ -122,10 +122,12 @@ deploy: ## Deploy with Docker — full rebuild (no cache, slow but clean)
 fast-deploy: ensure-bun ## Quick deploy — uses Docker cache (fast, ~30s if only code changed)
 	@export PATH="$$HOME/.bun/bin:$$PATH" && \
 	echo "⚡ Fast deploy (using Docker cache)..." && \
+	git pull origin main && \
 	bun install && \
 	cd mini-services/chat-service && bun install && cd ../.. && \
 	docker compose -f docker-compose.prod.yml build && \
 	docker compose -f docker-compose.prod.yml up -d --force-recreate --remove-orphans && \
+	sleep 3 && \
 	docker compose -f docker-compose.prod.yml exec caddy caddy reload --config /etc/caddy/Caddyfile 2>/dev/null || true && \
 	echo "✅ Fast deploy done!"
 
