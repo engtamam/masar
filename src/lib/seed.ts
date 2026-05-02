@@ -51,14 +51,15 @@ async function main() {
   // 3. Seed Milestone Defaults (8 matching the requirements)
   console.log('  → Seeding milestone defaults...')
   const milestones = [
-    { titleAr: 'نموذج العمل', titleEn: 'Business Model Canvas', descriptionAr: 'تصميم نموذج العمل والتخطيط الاستراتيجي', descriptionEn: 'Design the business model canvas and strategic planning', icon: 'layout', sortOrder: 0, specialtyId: createdSpecialties[0].id },
-    { titleAr: 'النموذج الأولي', titleEn: 'MVP', descriptionAr: 'بناء النموذج الأولي للمنتج أو الخدمة', descriptionEn: 'Build the minimum viable product or service', icon: 'rocket', sortOrder: 1, specialtyId: createdSpecialties[1].id },
-    { titleAr: 'غرفة البيانات', titleEn: 'Data Room', descriptionAr: 'إعداد غرفة البيانات والوثائق المطلوبة', descriptionEn: 'Prepare data room and required documents', icon: 'folder-lock', sortOrder: 2, specialtyId: createdSpecialties[2].id },
-    { titleAr: 'خارطة الطريق', titleEn: 'Roadmap', descriptionAr: 'وضع خارطة الطريق وخطة التنفيذ', descriptionEn: 'Develop the roadmap and execution plan', icon: 'map', sortOrder: 3, specialtyId: createdSpecialties[0].id },
-    { titleAr: 'البيانات المالية التقديرية', titleEn: 'Financials', descriptionAr: 'إعداد البيانات المالية التقديرية والتوقعات', descriptionEn: 'Prepare financial projections and forecasts', icon: 'calculator', sortOrder: 4, specialtyId: createdSpecialties[3].id },
-    { titleAr: 'العرض الاستثماري', titleEn: 'Pitch Deck', descriptionAr: 'إعداد العرض الاستثماري والمواد التسويقية', descriptionEn: 'Prepare the investment pitch deck and marketing materials', icon: 'presentation', sortOrder: 5, specialtyId: createdSpecialties[4].id },
-    { titleAr: 'استراتيجية الخروج', titleEn: 'Exit Strategy', descriptionAr: 'وضع استراتيجية الخروج للمستثمرين', descriptionEn: 'Develop the exit strategy for investors', icon: 'log-out', sortOrder: 6, specialtyId: createdSpecialties[3].id },
-    { titleAr: 'تحديد قيمة التمويل', titleEn: 'The Ask', descriptionAr: 'تحديد قيمة التمويل المطلوب وشروط الاستثمار', descriptionEn: 'Determine the funding amount and investment terms', icon: 'dollar-sign', sortOrder: 7, specialtyId: createdSpecialties[4].id },
+    { titleAr: 'الاستقبال والتقييم', titleEn: 'Intake & Assessment', descriptionAr: 'جلسة تعريفية مع المستشار لتقييم الفكرة وفهم الاحتياجات', descriptionEn: 'Introductory session with consultant to assess the idea and understand needs', icon: 'handshake', sortOrder: 0, specialtyId: createdSpecialties[0].id },
+    { titleAr: 'نموذج العمل', titleEn: 'Business Model Canvas', descriptionAr: 'تصميم نموذج العمل والتخطيط الاستراتيجي', descriptionEn: 'Design the business model canvas and strategic planning', icon: 'layout', sortOrder: 1, specialtyId: createdSpecialties[0].id },
+    { titleAr: 'النموذج الأولي', titleEn: 'MVP', descriptionAr: 'بناء النموذج الأولي للمنتج أو الخدمة', descriptionEn: 'Build the minimum viable product or service', icon: 'rocket', sortOrder: 2, specialtyId: createdSpecialties[1].id },
+    { titleAr: 'غرفة البيانات', titleEn: 'Data Room', descriptionAr: 'إعداد غرفة البيانات والوثائق المطلوبة', descriptionEn: 'Prepare data room and required documents', icon: 'folder-lock', sortOrder: 3, specialtyId: createdSpecialties[2].id },
+    { titleAr: 'خارطة الطريق', titleEn: 'Roadmap', descriptionAr: 'وضع خارطة الطريق وخطة التنفيذ', descriptionEn: 'Develop the roadmap and execution plan', icon: 'map', sortOrder: 4, specialtyId: createdSpecialties[0].id },
+    { titleAr: 'البيانات المالية التقديرية', titleEn: 'Financials', descriptionAr: 'إعداد البيانات المالية التقديرية والتوقعات', descriptionEn: 'Prepare financial projections and forecasts', icon: 'calculator', sortOrder: 5, specialtyId: createdSpecialties[3].id },
+    { titleAr: 'العرض الاستثماري', titleEn: 'Pitch Deck', descriptionAr: 'إعداد العرض الاستثماري والمواد التسويقية', descriptionEn: 'Prepare the investment pitch deck and marketing materials', icon: 'presentation', sortOrder: 6, specialtyId: createdSpecialties[4].id },
+    { titleAr: 'استراتيجية الخروج', titleEn: 'Exit Strategy', descriptionAr: 'وضع استراتيجية الخروج للمستثمرين', descriptionEn: 'Develop the exit strategy for investors', icon: 'log-out', sortOrder: 7, specialtyId: createdSpecialties[3].id },
+    { titleAr: 'تحديد قيمة التمويل', titleEn: 'The Ask', descriptionAr: 'تحديد قيمة التمويل المطلوب وشروط الاستثمار', descriptionEn: 'Determine the funding amount and investment terms', icon: 'dollar-sign', sortOrder: 8, specialtyId: createdSpecialties[4].id },
   ]
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

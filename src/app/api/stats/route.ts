@@ -14,10 +14,16 @@ export async function GET() {
       },
     })
 
+    // Count active milestones
+    const milestoneCount = await db.milestoneDefault.count({
+      where: { isActive: true },
+    })
+
     return NextResponse.json({
       success: true,
       data: {
         entrepreneurs: entrepreneurCount,
+        milestones: milestoneCount,
       },
     })
   } catch (error) {
@@ -26,6 +32,7 @@ export async function GET() {
       success: true,
       data: {
         entrepreneurs: 0,
+        milestones: 0,
       },
     })
   }

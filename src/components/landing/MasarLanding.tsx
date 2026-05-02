@@ -131,14 +131,20 @@ function useCounter(end: number, duration: number = 2000) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function MasarLanding({ onSignUp, onLogin }: MasarLandingProps) {
   const [entrepreneurCount, setEntrepreneurCount] = useState<number>(0);
+  const [milestoneCount, setMilestoneCount] = useState<number>(MILESTONES.length);
   const MIN_COUNT_TO_SHOW = 10;
 
   useEffect(() => {
     fetch('/api/stats')
       .then((res) => res.json())
       .then((data) => {
-        if (data?.success && data?.data?.entrepreneurs !== undefined) {
-          setEntrepreneurCount(data.data.entrepreneurs);
+        if (data?.success && data?.data) {
+          if (data.data.entrepreneurs !== undefined) {
+            setEntrepreneurCount(data.data.entrepreneurs);
+          }
+          if (data.data.milestones !== undefined) {
+            setMilestoneCount(data.data.milestones);
+          }
         }
       })
       .catch(() => {});
@@ -249,7 +255,7 @@ function MasarLanding({ onSignUp, onLogin }: MasarLandingProps) {
             {entrepreneurCount >= MIN_COUNT_TO_SHOW && (
               <StatBadge value={entrepreneurCount} suffix="+" label="رائد أعمال" />
             )}
-            <StatBadge value={8} suffix="" label="مراحل متكاملة" />
+            <StatBadge value={milestoneCount} suffix="" label="مراحل متكاملة" />
             <StatBadge value={100} suffix="%" label="مجاني بالكامل" />
           </div>
         </div>
@@ -327,7 +333,7 @@ function MasarLanding({ onSignUp, onLogin }: MasarLandingProps) {
         </div>
       </AnimatedSection>
 
-      {/* ━━━ Section 4: The 8-Step Journey ━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      {/* ━━━ Section 4: The Journey ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <AnimatedSection id="journey" className="py-20 sm:py-28 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
@@ -340,7 +346,7 @@ function MasarLanding({ onSignUp, onLogin }: MasarLandingProps) {
               <span className="text-emerald-600">مَسَار</span>
             </h2>
             <p className="text-lg text-gray-500 max-w-xl mx-auto">
-              8 مراحل مُهيكلة تأخذك من الفكرة إلى جاهزية التقديم
+              {milestoneCount} مراحل مُهيكلة تأخذك من الفكرة إلى جاهزية التقديم
             </p>
           </div>
 
@@ -703,6 +709,12 @@ const SOLUTION_ITEMS = [
 
 // Milestone data
 const MILESTONES = [
+  {
+    icon: <Handshake className="size-6" />,
+    emoji: '🤝',
+    title: 'الاستقبال والتقييم',
+    desc: 'جلسة تعريفية مع المستشار لتقييم فكرتك وفهم احتياجاتك',
+  },
   {
     icon: <FileText className="size-6" />,
     emoji: '📋',
