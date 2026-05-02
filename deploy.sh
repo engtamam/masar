@@ -111,7 +111,11 @@ full_deploy() {
 
     # Start services
     log "Starting services..."
-    docker compose -f ${COMPOSE_FILE} up -d
+    docker compose -f ${COMPOSE_FILE} up -d --force-recreate --remove-orphans
+
+    # Reload Caddy to pick up Caddyfile changes
+    log "Reloading Caddy configuration..."
+    docker compose -f ${COMPOSE_FILE} exec caddy caddy reload --config /etc/caddy/Caddyfile 2>/dev/null || true
 
     # Wait for web to be healthy
     log "Waiting for web service to become healthy..."
