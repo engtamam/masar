@@ -73,7 +73,7 @@ export default function MeetingPage() {
       }
 
       try {
-        const response = await fetch(`/api/meetings/${roomId}`, {
+        const response = await fetch(`/api/meeting/${roomId}`, {
           headers: { Authorization: `Bearer ${token}` },
         })
         const result = await response.json()

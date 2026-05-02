@@ -164,7 +164,7 @@ interface BookingItem {
   startTime: string;
   endTime: string;
   status: 'CONFIRMED' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW';
-  meetingLink?: string;
+  meetingUrl?: string;
   notes?: string;
   cancellationReason?: string;
   consultant: BookingConsultant;
@@ -1912,12 +1912,12 @@ export function EntrepreneurBookings() {
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
 
-                      {booking.status === 'CONFIRMED' && booking.meetingLink && (
+                      {booking.status === 'CONFIRMED' && booking.meetingUrl && (
                         <Button
                           size="sm"
                           variant="outline"
                           className="text-emerald-600 border-emerald-200 hover:bg-emerald-50"
-                          onClick={() => openMeetingLink(booking.meetingLink!)}
+                          onClick={() => openMeetingLink(booking.meetingUrl!)}
                         >
                           <Video className="w-4 h-4" />
                           <span className="hidden sm:inline">انضم</span>
