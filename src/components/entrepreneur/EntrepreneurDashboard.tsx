@@ -4,7 +4,7 @@
 // All UI text in Arabic, code/comments in English
 // RTL layout with emerald/teal color scheme
 
-import { useState, useEffect, useRef, useCallback, useMemo, type DragEvent } from 'react';
+import { useState, useEffect, useRef, useCallback, type DragEvent } from 'react';
 import {
   LayoutDashboard,
   Map,
@@ -2221,7 +2221,7 @@ export function EntrepreneurChat() {
     async function loadMessages() {
       setLoadingMessages(true);
       try {
-        const res = await chatApi.getMessages(activeChatRoomId!);
+        const res = await chatApi.getMessages(activeChatRoomId);
         if (res.success && res.data) {
           const data = res.data as { messages: ChatMessageItem[] };
           setMessages(data.messages || []);
@@ -2464,7 +2464,7 @@ export function EntrepreneurChat() {
 // ========== 7. EntrepreneurFiles ==========
 
 export function EntrepreneurFiles() {
-  const { user, currentProjectId, projects } = useAppStore();
+  const { user, currentProjectId } = useAppStore();
   const [files, setFiles] = useState<UploadedFileInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -2472,8 +2472,6 @@ export function EntrepreneurFiles() {
   const [selectedMilestone, setSelectedMilestone] = useState<string>('');
   const [milestones, setMilestones] = useState<MilestoneProgressItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const currentProject = projects.find((p) => p.id === currentProjectId);
 
   const loadFiles = useCallback(async () => {
     setLoading(true);
@@ -2494,15 +2492,11 @@ export function EntrepreneurFiles() {
     } finally {
       setLoading(false);
     }
-  }, [selectedMilestone, currentProjectId]);
+  }, [selectedMilestone]);
 
   const loadMilestones = useCallback(async () => {
-    if (!currentProjectId) {
-      setMilestones([]);
-      return;
-    }
     try {
-      const res = await milestonesApi.getMyMilestones(currentProjectId);
+      const res = await milestonesApi.getMyMilestones(currentProjectId || undefined);
       if (res.success && res.data) {
         const data = res.data as MilestonesResponse;
         setMilestones(data.progress || []);
@@ -2510,11 +2504,10 @@ export function EntrepreneurFiles() {
     } catch {
       // Silently handle
     }
-  }, [currentProjectId]);
+  }, []);
 
   useEffect(() => {
     loadMilestones();
-    setSelectedMilestone('');
   }, [loadMilestones]);
 
   useEffect(() => {
@@ -2523,16 +2516,12 @@ export function EntrepreneurFiles() {
 
   const handleUpload = async (filesList: FileList | null) => {
     if (!filesList || filesList.length === 0) return;
-    if (!currentProjectId) {
-      toast.error('الرجاء اختيار مشروع أولاً');
-      return;
-    }
     setUploading(true);
     try {
       for (let i = 0; i < filesList.length; i++) {
         const res = await filesApi.uploadFile(
           filesList[i],
-          { milestoneProgressId: selectedMilestone || undefined, projectId: currentProjectId }
+          { milestoneProgressId: selectedMilestone || undefined, projectId: currentProjectId || undefined }
         );
         if (!res.success) {
           toast.error(`فشل رفع الملف: ${filesList[i].name}`);
@@ -2567,112 +2556,16 @@ export function EntrepreneurFiles() {
   const handleDownload = (fileId: string, fileName: string) => {
     const url = filesApi.getFileUrl(fileId);
     const token = localStorage.getItem('auth_token');
+    // Open download in new tab with token as query param for auth
     const downloadUrl = `${url}?token=${token}`;
     window.open(downloadUrl, '_blank');
   };
 
-  // Group files by milestone when no specific milestone is selected
-  const groupedFiles = useMemo(() => {
-    if (selectedMilestone) {
-      return [{ milestone: null, files }];
-    }
-    const groups: { milestone: string; title: string; files: UploadedFileInfo[] }[] = [];
-    const milestoneMap = new Map<string, UploadedFileInfo[]>();
-    const ungrouped: UploadedFileInfo[] = [];
-
-    for (const file of files) {
-      const msId = file.milestoneProgress?.milestoneDefault?.id;
-      if (msId) {
-        if (!milestoneMap.has(msId)) milestoneMap.set(msId, []);
-        milestoneMap.get(msId)!.push(file);
-      } else {
-        ungrouped.push(file);
-      }
-    }
-
-    // Add groups in milestone order
-    for (const mp of milestones) {
-      const msFiles = milestoneMap.get(mp.milestoneDefaultId);
-      if (msFiles && msFiles.length > 0) {
-        groups.push({
-          milestone: mp.id,
-          title: mp.milestoneDefault.titleAr,
-          files: msFiles,
-        });
-      }
-    }
-
-    // Add ungrouped files
-    if (ungrouped.length > 0) {
-      groups.push({ milestone: '__none__', title: 'ملفات عامة', files: ungrouped });
-    }
-
-    return groups;
-  }, [files, milestones, selectedMilestone]);
-
-  const renderFileCard = (file: UploadedFileInfo) => (
-    <Card className="overflow-hidden">
-      <CardContent className="p-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
-            <File className="w-5 h-5 text-emerald-600" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-medium text-sm truncate">{file.originalName}</p>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-              <span>{formatFileSize(file.fileSize)}</span>
-              <span>·</span>
-              <span>{formatDateShort(file.createdAt)}</span>
-              {file.milestoneProgress && selectedMilestone && (
-                <>
-                  <span>·</span>
-                  <span>{file.milestoneProgress.milestoneDefault.titleAr}</span>
-                </>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-8 w-8 text-emerald-600 hover:bg-emerald-50"
-              onClick={() => handleDownload(file.id, file.originalName)}
-              title="تنزيل"
-            >
-              <Download className="w-4 h-4" />
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-8 w-8 text-red-500 hover:bg-red-50"
-              onClick={() => handleDelete(file.id)}
-              disabled={deletingId === file.id}
-              title="حذف"
-            >
-              {deletingId === file.id ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Trash2 className="w-4 h-4" />
-              )}
-            </Button>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-
   return (
-    <div className="p-4 sm:p-6" dir="rtl">
+    <div className="p-4 sm:p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">الملفات</h2>
-          {currentProject && (
-            <p className="text-sm text-muted-foreground mt-1">
-              مشروع: <span className="font-medium text-emerald-700">{currentProject.name}</span>
-            </p>
-          )}
-        </div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <h2 className="text-2xl font-bold text-gray-900">الملفات</h2>
         <div className="flex items-center gap-3">
           {/* Milestone filter */}
           <select
@@ -2691,8 +2584,8 @@ export function EntrepreneurFiles() {
           {/* Upload button */}
           <Button
             onClick={() => fileInputRef.current?.click()}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
-            disabled={uploading || !currentProjectId}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            disabled={uploading}
           >
             {uploading ? (
               <>
@@ -2719,15 +2612,6 @@ export function EntrepreneurFiles() {
         </div>
       </div>
 
-      {/* No project warning */}
-      {!currentProjectId && (
-        <Card className="border-amber-200 bg-amber-50 mb-4">
-          <CardContent className="p-4 text-center">
-            <p className="text-amber-700 text-sm">الرجاء اختيار مشروع من القائمة الجانبية أولاً</p>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Files list */}
       {loading ? (
         <div className="space-y-3">
@@ -2741,37 +2625,66 @@ export function EntrepreneurFiles() {
             <FolderOpen className="w-12 h-12 text-gray-300 mx-auto mb-3" />
             <p className="text-muted-foreground">لا توجد ملفات بعد</p>
             <p className="text-sm text-muted-foreground mt-1">
-              {currentProjectId
-                ? 'ارفع ملفاتك المتعلقة بالمراحل المختلفة'
-                : 'اختر مشروعاً أولاً لعرض ملفاته'}
+              ارفع ملفاتك المتعلقة بالمراحل المختلفة
             </p>
           </CardContent>
         </Card>
-      ) : selectedMilestone ? (
-        // Flat list when filtering by specific milestone
+      ) : (
         <div className="space-y-2">
           {files.map((file) => (
-            <div key={file.id}>{renderFileCard(file)}</div>
-          ))}
-        </div>
-      ) : (
-        // Grouped by milestone when showing all
-        <div className="space-y-6">
-          {groupedFiles.map((group) => (
-            <div key={group.milestone || '__all__'}>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-1.5 h-5 bg-emerald-500 rounded-full" />
-                <h3 className="text-sm font-semibold text-gray-700">{group.title}</h3>
-                <Badge variant="secondary" className="text-xs">
-                  {group.files.length} ملف
-                </Badge>
-              </div>
-              <div className="space-y-2">
-                {group.files.map((file) => (
-                  <div key={file.id}>{renderFileCard(file)}</div>
-                ))}
-              </div>
-            </div>
+            <Card key={file.id} className="overflow-hidden">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  {/* File icon */}
+                  <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
+                    <File className="w-5 h-5 text-emerald-600" />
+                  </div>
+
+                  {/* File info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{file.originalName}</p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                      <span>{formatFileSize(file.fileSize)}</span>
+                      <span>·</span>
+                      <span>{formatDateShort(file.createdAt)}</span>
+                      {file.milestoneProgress && (
+                        <>
+                          <span>·</span>
+                          <span>{file.milestoneProgress.milestoneDefault.titleAr}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 text-emerald-600 hover:bg-emerald-50"
+                      onClick={() => handleDownload(file.id, file.originalName)}
+                      title="تنزيل"
+                    >
+                      <Download className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 text-red-500 hover:bg-red-50"
+                      onClick={() => handleDelete(file.id)}
+                      disabled={deletingId === file.id}
+                      title="حذف"
+                    >
+                      {deletingId === file.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}
