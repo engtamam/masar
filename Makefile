@@ -7,7 +7,7 @@
 	db-generate db-setup lint clean docker-up docker-down docker-build \
 	docker-logs docker-restart prod-up prod-down prod-logs prod-status \
 	prod-reset prod-update prod-backup prod-restore prod-seed setup fresh nuke \
-	backup restore backup-list gen-keys deploy ensure-bun ui-deploy ui-restart \
+	backup restore backup-list gen-keys deploy fast-deploy ensure-bun ui-deploy ui-restart \
 	test test-admin test-consultant test-entrepreneur test-prod
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -116,8 +116,17 @@ nuke: ## Nuclear option: delete EVERYTHING (files + Docker containers/volumes/im
 	@echo '   3. make setup   (for dev)  OR  make prod-setup  (for production)'
 	@echo '   4. make deploy  (for Docker production)'
 
-deploy: ## Deploy with Docker (Caddy + Web + Chat) — same as bash deploy.sh
+deploy: ## Deploy with Docker — full rebuild (no cache, slow but clean)
 	@bash deploy.sh
+
+fast-deploy: ## Quick deploy — uses Docker cache (fast, ~30s if only code changed)
+	@echo "⚡ Fast deploy (using Docker cache)..."
+	@bun install
+	@cd mini-services/chat-service && bun install && cd ../..
+	@docker compose -f docker-compose.prod.yml build
+	@docker compose -f docker-compose.prod.yml up -d --force-recreate --remove-orphans
+	@docker compose -f docker-compose.prod.yml exec caddy caddy reload --config /etc/caddy/Caddyfile 2>/dev/null || true
+	@echo "✅ Fast deploy done!"
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # DEVELOPMENT
