@@ -96,7 +96,7 @@ nuke: ## Nuclear option: delete EVERYTHING (files + Docker containers/volumes/im
 	@echo '║                                                         ║'
 	@echo '║  There is NO undo. You will start from ZERO.       ║'
 	@echo '╚══════════════════════════════════════════════════════════╝'
-	@bash -c "read -p \"Type 'DESTROY' to confirm: \" confirm && [ \"$$confirm\" = \"DESTROY\" ] || exit 1"
+	@bash -c 'read -p "Type DESTROY to confirm: " x && [ "$$x" = "DESTROY" ] || exit 1'
 	@echo ''
 	@echo '🛑 Stopping and removing Docker containers...'
 	docker compose -f docker-compose.prod.yml down -v --remove-orphans 2>/dev/null || true
@@ -106,8 +106,7 @@ nuke: ## Nuclear option: delete EVERYTHING (files + Docker containers/volumes/im
 	@echo '🛑 Pruning unused Docker resources...'
 	docker system prune -af --volumes 2>/dev/null || true
 	@echo '🛑 Deleting all local files...'
-	@bash -c "rm -rf .next node_modules db/ upload/ backups/ mini-services/chat-service/node_modules"
-	@bash -c "rm -f .env .env.local"
+	@bash -c 'rm -rf .next node_modules db/ upload/ backups/ mini-services/chat-service/node_modules .env .env.local'
 	@echo ''
 	@echo '☢️  Everything destroyed. Starting from scratch:'
 	@echo '   1. cp .env.example .env'
