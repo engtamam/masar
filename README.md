@@ -139,7 +139,7 @@ You can add email service later — just set the variables and restart the serve
 
 - **Frontend:** Next.js 16 (App Router) + React 19 + TypeScript + Tailwind CSS 4
 - **UI:** shadcn/ui components + Framer Motion animations
-- **State:** Zustand + React Query
+- **State:** Zustand
 - **Backend:** Next.js API Routes + Prisma ORM
 - **Database:** SQLite (dev) / PostgreSQL (production)
 - **Auth:** Custom JWT + bcryptjs
@@ -219,7 +219,7 @@ Each milestone unlocks only after the previous one is approved by a consultant:
 │   │   ├── admin/              # Admin dashboard (users, specialties, milestones, configs, quotas, reports, chat monitor, templates)
 │   │   ├── auth/               # Login, register, forgot/reset password, verify email
 │   │   ├── consultant/         # Consultant dashboard (overview, schedule, entrepreneurs, chat, templates)
-│   │   ├── entrepreneur/       # Entrepreneur dashboard (journey, bookings, chat, files, templates)
+│   │   ├── entrepreneur/       # Entrepreneur dashboard (journey, bookings, chat, files, consultants, templates)
 │   │   ├── landing/            # Landing page (MasarLanding) — 10 animated sections
 │   │   ├── legal/              # Legal page renderer (markdown → styled HTML)
 │   │   └── ui/                 # shadcn/ui base components
@@ -261,6 +261,7 @@ Each milestone unlocks only after the previous one is approved by a consultant:
 | `make prod-setup` | Production setup (no Docker): install bun + deps + build + push schema + seed |
 | `make gen-keys` | Generate secure random JWT_SECRET + ENCRYPTION_KEY and update .env |
 | `make deploy` | Deploy with Docker (Caddy + Web + Chat) — same as `bash deploy.sh` |
+| `make fast-deploy` | Quick deploy — uses Docker cache (fast, ~30s if only code changed) |
 | `make dev` | Start Next.js dev server on port 3000 |
 
 ### Development
