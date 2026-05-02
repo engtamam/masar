@@ -50,12 +50,16 @@ interface ApiResponse<T> {
 /**
  * Generic request helper that auto-attaches the Bearer token,
  * parses the response, and handles 401 errors.
+ *
+ * Set skipAuthRedirect=true for auth endpoints (login/register)
+ * where 401 means "wrong credentials", not "session expired".
  */
 async function request<T>(
   path: string,
-  options?: RequestInit
+  options?: RequestInit & { skipAuthRedirect?: boolean }
 ): Promise<ApiResponse<T>> {
   const token = getToken();
+  const skipAuthRedirect = options?.skipAuthRedirect;
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -73,7 +77,8 @@ async function request<T>(
     });
 
     // Handle 401 Unauthorized - clear token and redirect
-    if (response.status === 401) {
+    // Skip for login/register where 401 = wrong credentials (not session expiry)
+    if (response.status === 401 && !skipAuthRedirect) {
       clearToken();
       if (typeof window !== 'undefined') {
         // Use a custom event so the store can react without circular deps
@@ -191,6 +196,7 @@ export const authApi = {
     request<LoginResponse>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
+      skipAuthRedirect: true, // 401 = wrong credentials, not session expiry
     }),
 
   /**
@@ -200,6 +206,7 @@ export const authApi = {
     request<RegisterResponse>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(data),
+      skipAuthRedirect: true, // 401/400 = validation error, not session expiry
     }),
 
   /**
