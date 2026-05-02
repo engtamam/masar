@@ -129,9 +129,33 @@ function useCounter(end: number, duration: number = 2000) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // MAIN LANDING COMPONENT
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Map icon string names from DB to React components + emojis
+const ICON_MAP: Record<string, { icon: React.ReactNode; emoji: string }> = {
+  'handshake': { icon: <Handshake className="size-6" />, emoji: '🤝' },
+  'layout': { icon: <FileText className="size-6" />, emoji: '📋' },
+  'rocket': { icon: <Rocket className="size-6" />, emoji: '🚀' },
+  'folder-lock': { icon: <FolderOpen className="size-6" />, emoji: '📁' },
+  'map': { icon: <Map className="size-6" />, emoji: '🗺️' },
+  'calculator': { icon: <DollarSign className="size-6" />, emoji: '💰' },
+  'presentation': { icon: <BarChart3 className="size-6" />, emoji: '📊' },
+  'log-out': { icon: <DoorOpen className="size-6" />, emoji: '🚪' },
+  'dollar-sign': { icon: <Gem className="size-6" />, emoji: '💎' },
+};
+
+interface DbMilestone {
+  id: string;
+  titleAr: string;
+  titleEn: string;
+  descriptionAr: string | null;
+  descriptionEn: string | null;
+  icon: string | null;
+  sortOrder: number;
+}
+
 function MasarLanding({ onSignUp, onLogin }: MasarLandingProps) {
   const [entrepreneurCount, setEntrepreneurCount] = useState<number>(0);
   const [milestoneCount, setMilestoneCount] = useState<number>(MILESTONES.length);
+  const [dbMilestones, setDbMilestones] = useState<DbMilestone[]>([]);
   const MIN_COUNT_TO_SHOW = 10;
 
   useEffect(() => {
@@ -145,10 +169,26 @@ function MasarLanding({ onSignUp, onLogin }: MasarLandingProps) {
           if (data.data.milestones !== undefined) {
             setMilestoneCount(data.data.milestones);
           }
+          if (data.data.milestonesList && data.data.milestonesList.length > 0) {
+            setDbMilestones(data.data.milestonesList);
+          }
         }
       })
       .catch(() => {});
   }, []);
+
+  // Use DB milestones if available, otherwise fall back to hardcoded
+  const displayMilestones = dbMilestones.length > 0
+    ? dbMilestones.map((m) => {
+        const mapped = ICON_MAP[m.icon || ''] || { icon: <Star className="size-6" />, emoji: '⭐' };
+        return {
+          icon: mapped.icon,
+          emoji: mapped.emoji,
+          title: m.titleAr,
+          desc: m.descriptionAr || '',
+        };
+      })
+    : MILESTONES;
 
   const scrollTo = useCallback((id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
@@ -356,7 +396,7 @@ function MasarLanding({ onSignUp, onLogin }: MasarLandingProps) {
             <div className="md:hidden absolute top-0 bottom-0 right-6 w-0.5 bg-gradient-to-b from-emerald-200 via-emerald-400 to-emerald-200" />
 
             <div className="space-y-8 md:space-y-12">
-              {MILESTONES.map((milestone, i) => (
+              {displayMilestones.map((milestone, i) => (
                 <MilestoneCard key={i} milestone={milestone} index={i} />
               ))}
             </div>

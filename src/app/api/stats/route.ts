@@ -14,16 +14,27 @@ export async function GET() {
       },
     })
 
-    // Count active milestones
-    const milestoneCount = await db.milestoneDefault.count({
+    // Get active milestones (ordered)
+    const milestones = await db.milestoneDefault.findMany({
       where: { isActive: true },
+      select: {
+        id: true,
+        titleAr: true,
+        titleEn: true,
+        descriptionAr: true,
+        descriptionEn: true,
+        icon: true,
+        sortOrder: true,
+      },
+      orderBy: { sortOrder: 'asc' },
     })
 
     return NextResponse.json({
       success: true,
       data: {
         entrepreneurs: entrepreneurCount,
-        milestones: milestoneCount,
+        milestones: milestones.length,
+        milestonesList: milestones,
       },
     })
   } catch (error) {
@@ -33,6 +44,7 @@ export async function GET() {
       data: {
         entrepreneurs: 0,
         milestones: 0,
+        milestonesList: [],
       },
     })
   }
