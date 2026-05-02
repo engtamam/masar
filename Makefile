@@ -140,7 +140,8 @@ fast-deploy: ensure-bun ## Quick deploy — uses Docker cache (fast, ~30s if onl
 	cd mini-services/chat-service && bun install && cd ../.. && \
 	docker compose -f docker-compose.prod.yml build && \
 	docker compose -f docker-compose.prod.yml up -d --force-recreate --remove-orphans && \
-	sleep 3 && \
+	sleep 5 && \
+	docker compose -f docker-compose.prod.yml exec web curl -sf -X POST http://localhost:3000/api/admin/seed && echo "" || true && \
 	docker compose -f docker-compose.prod.yml exec caddy caddy reload --config /etc/caddy/Caddyfile 2>/dev/null || true && \
 	echo "✅ Fast deploy done!"
 
@@ -250,8 +251,8 @@ prod-reset: ## Wipe production data and start fresh
 	docker volume prune -f
 	docker compose -f docker-compose.prod.yml up -d --build
 	@echo "Waiting for services to start..."
-	@sleep 30
-	docker compose -f docker-compose.prod.yml exec web npx tsx src/lib/seed.ts
+	@sleep 5
+	docker compose -f docker-compose.prod.yml exec web curl -sf -X POST http://localhost:3000/api/admin/seed && echo ""
 	@echo "✅ Production reset complete!"
 
 prod-update: ## Pull latest code and redeploy production
@@ -323,8 +324,8 @@ prod-restore: ## Restore production DB (usage: make prod-restore DB=backups/file
 	docker compose -f docker-compose.prod.yml cp "$$DB" web:/app/db/production.db
 	@echo "✅ Production database restored! Restart the service: make prod-down && make prod-up"
 
-prod-seed: ## Seed production database
-	docker compose -f docker-compose.prod.yml exec web npx tsx src/lib/seed.ts
+prod-seed: ## Seed production database (via API endpoint, works inside Docker)
+	docker compose -f docker-compose.prod.yml exec web curl -sf -X POST http://localhost:3000/api/admin/seed && echo ""
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # UI-ONLY DEPLOY (fast — no DB, no Caddy, no Chat restart)
