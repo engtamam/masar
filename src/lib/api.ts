@@ -373,6 +373,16 @@ export const bookingsApi = {
     }),
 };
 
+// ========== Consultants API ==========
+
+export const consultantsApi = {
+  /**
+   * List active consultants (for booking)
+   */
+  getConsultants: (specialtyId?: string) =>
+    request<unknown[]>(`/consultants${buildQuery({ specialtyId })}`),
+};
+
 // ========== Meetings API ==========
 
 export const meetingsApi = {

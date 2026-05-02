@@ -48,6 +48,7 @@ import {
   filesApi,
   notificationsApi,
   projectsApi,
+  consultantsApi,
 } from '@/lib/api';
 
 import { Button } from '@/components/ui/button';
@@ -1573,13 +1574,52 @@ export function JourneyView() {
 
 // ========== 5. EntrepreneurBookings ==========
 
+interface ConsultantInfo {
+  id: string;
+  userId: string;
+  bio?: string;
+  rating: number;
+  user: { id: string; name: string; email: string; avatarUrl?: string };
+  specialty: { id: string; nameAr: string; nameEn: string; icon?: string; color?: string };
+}
+
+interface AvailabilitySlot {
+  id: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  slotDuration?: number;
+}
+
+const DAY_NAMES_AR = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+
+function formatTime(time: string): string {
+  const [h, m] = time.split(':').map(Number);
+  const period = h >= 12 ? 'م' : 'ص';
+  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${hour12}:${m.toString().padStart(2, '0')} ${period}`;
+}
+
 export function EntrepreneurBookings() {
-  const { user, currentProjectId } = useAppStore();
+  const { user, currentProjectId, projects } = useAppStore();
   const [bookings, setBookings] = useState<BookingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [bookingToCancel, setBookingToCancel] = useState<BookingItem | null>(null);
+
+  // Booking creation state
+  const [showBookDialog, setShowBookDialog] = useState(false);
+  const [consultants, setConsultants] = useState<ConsultantInfo[]>([]);
+  const [selectedConsultant, setSelectedConsultant] = useState<ConsultantInfo | null>(null);
+  const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
+  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedStartTime, setSelectedStartTime] = useState('');
+  const [selectedEndTime, setSelectedEndTime] = useState('');
+  const [bookingNotes, setBookingNotes] = useState('');
+  const [loadingConsultants, setLoadingConsultants] = useState(false);
+  const [loadingAvailability, setLoadingAvailability] = useState(false);
+  const [creating, setCreating] = useState(false);
 
   const loadBookings = useCallback(async () => {
     setLoading(true);
@@ -1599,6 +1639,83 @@ export function EntrepreneurBookings() {
   useEffect(() => {
     loadBookings();
   }, [loadBookings]);
+
+  // Load consultants when dialog opens
+  useEffect(() => {
+    if (showBookDialog) {
+      setLoadingConsultants(true);
+      consultantsApi.getConsultants().then((res) => {
+        if (res.success && res.data) {
+          setConsultants(res.data as ConsultantInfo[]);
+        }
+      }).catch(() => {
+        toast.error('حدث خطأ في تحميل المستشارين');
+      }).finally(() => {
+        setLoadingConsultants(false);
+      });
+    } else {
+      // Reset state when dialog closes
+      setSelectedConsultant(null);
+      setAvailability([]);
+      setSelectedDate('');
+      setSelectedStartTime('');
+      setSelectedEndTime('');
+      setBookingNotes('');
+    }
+  }, [showBookDialog]);
+
+  // Load availability when consultant is selected
+  useEffect(() => {
+    if (selectedConsultant) {
+      setLoadingAvailability(true);
+      setAvailability([]);
+      setSelectedDate('');
+      setSelectedStartTime('');
+      setSelectedEndTime('');
+      bookingsApi.getAvailability(selectedConsultant.id).then((res) => {
+        if (res.success && res.data) {
+          setAvailability(res.data as AvailabilitySlot[]);
+        }
+      }).catch(() => {
+        toast.error('حدث خطأ في تحميل المواعيد المتاحة');
+      }).finally(() => {
+        setLoadingAvailability(false);
+      });
+    }
+  }, [selectedConsultant]);
+
+  const handleCreateBooking = async () => {
+    if (!selectedConsultant || !selectedDate || !selectedStartTime || !selectedEndTime) {
+      toast.error('الرجاء اختيار المستشار والتاريخ والوقت');
+      return;
+    }
+    if (!currentProjectId) {
+      toast.error('الرجاء اختيار مشروع أولاً');
+      return;
+    }
+    setCreating(true);
+    try {
+      const res = await bookingsApi.createBooking({
+        consultantId: selectedConsultant.id,
+        projectId: currentProjectId,
+        date: selectedDate,
+        startTime: selectedStartTime,
+        endTime: selectedEndTime,
+        notes: bookingNotes.trim() || undefined,
+      });
+      if (res.success) {
+        toast.success('تم حجز الجلسة بنجاح! 🎉');
+        setShowBookDialog(false);
+        loadBookings();
+      } else {
+        toast.error(res.error || 'فشل في حجز الجلسة');
+      }
+    } catch {
+      toast.error('حدث خطأ في حجز الجلسة');
+    } finally {
+      setCreating(false);
+    }
+  };
 
   const handleCancel = async () => {
     if (!bookingToCancel) return;
@@ -1623,9 +1740,59 @@ export function EntrepreneurBookings() {
     }
   };
 
-  const openJitsiLink = (link: string) => {
+  const openMeetingLink = (link: string) => {
     window.open(link, '_blank', 'noopener,noreferrer');
   };
+
+  // Generate available dates for the next 14 days based on consultant availability
+  const getAvailableDates = (): { date: string; dayName: string; dayOfWeek: number }[] => {
+    if (availability.length === 0) return [];
+    const availableDays = new Set(availability.map((s) => s.dayOfWeek));
+    const dates: { date: string; dayName: string; dayOfWeek: number }[] = [];
+    const today = new Date();
+    for (let i = 1; i <= 14; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() + i);
+      const dow = d.getDay();
+      if (availableDays.has(dow)) {
+        dates.push({
+          date: d.toISOString().split('T')[0],
+          dayName: DAY_NAMES_AR[dow],
+          dayOfWeek: dow,
+        });
+      }
+    }
+    return dates;
+  };
+
+  // Get time slots for selected date
+  const getTimeSlotsForDate = (): { start: string; end: string; label: string }[] => {
+    if (!selectedDate) return [];
+    const dow = new Date(selectedDate).getDay();
+    const daySlots = availability.filter((s) => s.dayOfWeek === dow);
+    const slots: { start: string; end: string; label: string }[] = [];
+    for (const slot of daySlots) {
+      const duration = slot.slotDuration || 30;
+      const [sh, sm] = slot.startTime.split(':').map(Number);
+      const [eh, em] = slot.endTime.split(':').map(Number);
+      let startMin = sh * 60 + sm;
+      const endMin = eh * 60 + em;
+      while (startMin + duration <= endMin) {
+        const h = Math.floor(startMin / 60);
+        const m = startMin % 60;
+        const eh2 = Math.floor((startMin + duration) / 60);
+        const em2 = (startMin + duration) % 60;
+        const startStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+        const endStr = `${eh2.toString().padStart(2, '0')}:${em2.toString().padStart(2, '0')}`;
+        slots.push({ start: startStr, end: endStr, label: `${formatTime(startStr)} - ${formatTime(endStr)}` });
+        startMin += duration;
+      }
+    }
+    return slots;
+  };
+
+  const availableDates = getAvailableDates();
+  const timeSlots = getTimeSlotsForDate();
 
   if (loading) {
     return (
@@ -1639,14 +1806,44 @@ export function EntrepreneurBookings() {
   }
 
   return (
-    <div className="p-4 sm:p-6">
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">حجوزاتي</h2>
+    <div className="p-4 sm:p-6" dir="rtl">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">حجوزاتي</h2>
+          <p className="text-sm text-gray-500">إدارة جلساتك الاستشارية</p>
+        </div>
+        <Button
+          onClick={() => setShowBookDialog(true)}
+          className="bg-emerald-600 hover:bg-emerald-700 gap-2"
+          disabled={!currentProjectId}
+        >
+          <Plus className="w-4 h-4" />
+          حجز جلسة جديدة
+        </Button>
+      </div>
 
+      {!currentProjectId && (
+        <Card className="border-amber-200 bg-amber-50 mb-4">
+          <CardContent className="p-4 text-center">
+            <p className="text-amber-700 text-sm">الرجاء اختيار مشروع من القائمة الجانبية أولاً</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Bookings list */}
       {bookings.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
-            <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-muted-foreground">لا توجد حجوزات حالياً</p>
+            <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-600 mb-2">لا توجد حجوزات حالياً</h3>
+            <p className="text-sm text-gray-400 mb-6">احجز جلسة استشارية مع أحد المستشارين للبدء</p>
+            {currentProjectId && (
+              <Button onClick={() => setShowBookDialog(true)} className="bg-emerald-600 hover:bg-emerald-700 gap-2">
+                <Plus className="w-4 h-4" />
+                حجز جلسة
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (
@@ -1691,7 +1888,7 @@ export function EntrepreneurBookings() {
                           size="sm"
                           variant="outline"
                           className="text-emerald-600 border-emerald-200 hover:bg-emerald-50"
-                          onClick={() => openJitsiLink(booking.meetingLink!)}
+                          onClick={() => openMeetingLink(booking.meetingLink!)}
                         >
                           <Video className="w-4 h-4" />
                           <span className="hidden sm:inline">انضم</span>
@@ -1751,6 +1948,165 @@ export function EntrepreneurBookings() {
             <Button variant="destructive" onClick={handleCancel} disabled={!!cancellingId}>
               {cancellingId ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
               إلغاء الحجز
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ===== Book a Session Dialog ===== */}
+      <Dialog open={showBookDialog} onOpenChange={setShowBookDialog}>
+        <DialogContent dir="rtl" className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-emerald-600" />
+              حجز جلسة استشارية
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-5">
+            {/* Step 1: Select Consultant */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">اختر المستشار *</label>
+              {loadingConsultants ? (
+                <div className="flex items-center gap-2 text-sm text-gray-400">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  جاري تحميل المستشارين...
+                </div>
+              ) : consultants.length === 0 ? (
+                <p className="text-sm text-gray-400">لا يوجد مستشارين متاحين حالياً</p>
+              ) : (
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {consultants.map((c) => (
+                    <label
+                      key={c.id}
+                      className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                        selectedConsultant?.id === c.id
+                          ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="consultant"
+                        checked={selectedConsultant?.id === c.id}
+                        onChange={() => setSelectedConsultant(c)}
+                        className="sr-only"
+                      />
+                      <Avatar className="w-10 h-10">
+                        <AvatarFallback className="bg-emerald-100 text-emerald-700 text-sm">
+                          {getInitials(c.user.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{c.user.name}</p>
+                        <p className="text-xs text-gray-400">{c.specialty.nameAr}</p>
+                      </div>
+                      {c.rating > 0 && (
+                        <span className="text-xs text-amber-600 font-medium">⭐ {c.rating.toFixed(1)}</span>
+                      )}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Step 2: Select Date */}
+            {selectedConsultant && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">اختر التاريخ *</label>
+                {loadingAvailability ? (
+                  <div className="flex items-center gap-2 text-sm text-gray-400">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    جاري تحميل المواعيد...
+                  </div>
+                ) : availableDates.length === 0 ? (
+                  <p className="text-sm text-amber-600 bg-amber-50 p-3 rounded-lg">
+                    هذا المستشار لم يحدد مواعيد متاحة بعد. يمكنك التواصل معه عبر المحادثات.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {availableDates.map((d) => (
+                      <button
+                        key={d.date}
+                        type="button"
+                        onClick={() => { setSelectedDate(d.date); setSelectedStartTime(''); setSelectedEndTime(''); }}
+                        className={`p-2.5 rounded-lg border text-center transition-all text-sm ${
+                          selectedDate === d.date
+                            ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500 text-emerald-700 font-medium'
+                            : 'border-gray-200 hover:border-gray-300 text-gray-600'
+                        }`}
+                      >
+                        <div className="font-medium">{d.dayName}</div>
+                        <div className="text-xs text-gray-400 mt-0.5">{d.date}</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Step 3: Select Time */}
+            {selectedDate && timeSlots.length > 0 && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">اختر الوقت *</label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {timeSlots.map((slot) => (
+                    <button
+                      key={slot.start}
+                      type="button"
+                      onClick={() => { setSelectedStartTime(slot.start); setSelectedEndTime(slot.end); }}
+                      className={`p-2.5 rounded-lg border text-center transition-all text-sm ${
+                        selectedStartTime === slot.start
+                          ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500 text-emerald-700 font-medium'
+                          : 'border-gray-200 hover:border-gray-300 text-gray-600'
+                      }`}
+                    >
+                      {slot.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Step 4: Notes */}
+            {selectedStartTime && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">ملاحظات (اختياري)</label>
+                <Textarea
+                  placeholder="أضف ملاحظاتك للمستشار..."
+                  value={bookingNotes}
+                  onChange={(e) => setBookingNotes(e.target.value)}
+                  maxLength={500}
+                  rows={2}
+                />
+              </div>
+            )}
+
+            {/* Summary */}
+            {selectedConsultant && selectedDate && selectedStartTime && (
+              <Card className="bg-emerald-50 border-emerald-200">
+                <CardContent className="p-3">
+                  <h4 className="text-sm font-semibold text-emerald-800 mb-2">ملخص الحجز</h4>
+                  <div className="space-y-1 text-xs text-emerald-700">
+                    <p>المستشار: {selectedConsultant.user.name} ({selectedConsultant.specialty.nameAr})</p>
+                    <p>التاريخ: {selectedDate}</p>
+                    <p>الوقت: {formatTime(selectedStartTime)} - {formatTime(selectedEndTime)}</p>
+                    <p>المشروع: {projects.find((p) => p.id === currentProjectId)?.name || 'غير محدد'}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowBookDialog(false)}>إلغاء</Button>
+            <Button
+              className="bg-emerald-600 hover:bg-emerald-700"
+              onClick={handleCreateBooking}
+              disabled={creating || !selectedConsultant || !selectedDate || !selectedStartTime}
+            >
+              {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+              {creating ? 'جاري الحجز...' : 'تأكيد الحجز'}
             </Button>
           </DialogFooter>
         </DialogContent>
