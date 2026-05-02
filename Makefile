@@ -86,7 +86,23 @@ fresh: ensure-bun ## Delete everything, reinstall, and start fresh
 	bun run src/lib/seed.ts
 	@echo "✅ Fresh setup complete! Run 'make dev' to start."
 
-nuke: ## Nuclear option: delete EVERYTHING (files + Docker containers/volumes/images + .env)
+nuke: ## Nuclear option: delete EVERYTHING — run: make nuke CONFIRM=DESTROY
+ifeq ($(CONFIRM),DESTROY)
+	@echo '🛑 Nuking everything...'
+	@echo '🛑 Stopping Docker containers...'
+	-docker compose -f docker-compose.prod.yml down -v --remove-orphans
+	-docker compose down -v --remove-orphans
+	@echo '🛑 Removing Docker images...'
+	-docker system prune -af --volumes
+	@echo '🛑 Deleting all local files...'
+	-powershell -Command "Remove-Item -Recurse -Force -ErrorAction SilentlyContinue .next, node_modules, db, upload, backups, mini-services/chat-service/node_modules; Remove-Item -Force -ErrorAction SilentlyContinue .env, .env.local"
+	@echo ''
+	@echo '☢️  Everything destroyed. Starting from scratch:'
+	@echo '   1. copy .env.example .env'
+	@echo '   2. make gen-keys'
+	@echo '   3. make setup   (for dev)  OR  make prod-setup  (for production)'
+	@echo '   4. make deploy  (for Docker production)'
+else
 	@echo '╔══════════════════════════════════════════════════════════╗'
 	@echo '║  ☢️  WARNING: THIS WILL DESTROY EVERYTHING!         ║'
 	@echo '║  - All local files (.next, node_modules, db, uploads)   ║'
@@ -96,23 +112,10 @@ nuke: ## Nuclear option: delete EVERYTHING (files + Docker containers/volumes/im
 	@echo '║                                                         ║'
 	@echo '║  There is NO undo. You will start from ZERO.       ║'
 	@echo '╚══════════════════════════════════════════════════════════╝'
-	@bash -c 'read -p "Type DESTROY to confirm: " x && [ "$$x" = "DESTROY" ] || exit 1'
 	@echo ''
-	@echo '🛑 Stopping and removing Docker containers...'
-	docker compose -f docker-compose.prod.yml down -v --remove-orphans 2>/dev/null || true
-	docker compose down -v --remove-orphans 2>/dev/null || true
-	@echo '🛑 Removing Docker images...'
-	docker rmi $$(docker images -q --filter reference='masar*') 2>/dev/null || true
-	@echo '🛑 Pruning unused Docker resources...'
-	docker system prune -af --volumes 2>/dev/null || true
-	@echo '🛑 Deleting all local files...'
-	@bash -c 'rm -rf .next node_modules db/ upload/ backups/ mini-services/chat-service/node_modules .env .env.local'
-	@echo ''
-	@echo '☢️  Everything destroyed. Starting from scratch:'
-	@echo '   1. cp .env.example .env'
-	@echo '   2. make gen-keys'
-	@echo '   3. make setup   (for dev)  OR  make prod-setup  (for production)'
-	@echo '   4. make deploy  (for Docker production)'
+	@echo '  To confirm, run:  make nuke CONFIRM=DESTROY'
+	@exit 1
+endif
 
 deploy: ## Deploy with Docker — full rebuild (no cache, slow but clean)
 	@bash deploy.sh
