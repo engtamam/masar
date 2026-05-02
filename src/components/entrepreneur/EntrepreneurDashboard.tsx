@@ -281,9 +281,12 @@ function formatDateShort(dateStr: string): string {
   }
 }
 
-/** Format time from HH:mm */
+/** Format time from HH:mm to Arabic 12-hour format */
 function formatTime(time: string): string {
-  return time;
+  const [h, m] = time.split(':').map(Number);
+  const period = h >= 12 ? 'م' : 'ص';
+  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${hour12}:${m.toString().padStart(2, '0')} ${period}`;
 }
 
 /** Format file size */
@@ -1592,13 +1595,6 @@ interface AvailabilitySlot {
 }
 
 const DAY_NAMES_AR = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
-
-function formatTime(time: string): string {
-  const [h, m] = time.split(':').map(Number);
-  const period = h >= 12 ? 'م' : 'ص';
-  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return `${hour12}:${m.toString().padStart(2, '0')} ${period}`;
-}
 
 export function EntrepreneurBookings() {
   const { user, currentProjectId, projects } = useAppStore();
