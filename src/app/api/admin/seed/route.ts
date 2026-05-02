@@ -80,21 +80,31 @@ export async function POST() {
     }
     log(`  OK ${createdMilestones.length} milestones seeded`)
 
-    // 4. Seed Admin User
+    // 4. Seed Admin User (reads from env vars set in docker-compose)
     log('  -> Seeding admin user...')
-    const adminPasswordHash = await hashPassword('admin123')
-    await db.user.upsert({
-      where: { email: 'admin@platform.sa' },
-      update: {},
-      create: {
-        email: 'admin@platform.sa',
-        name: 'Platform Admin',
-        passwordHash: adminPasswordHash,
-        role: 'ADMIN',
-        isActive: true,
-      },
-    })
-    log('  OK Admin user: admin@platform.sa')
+    const existingAdmin = await db.user.findFirst({ where: { role: 'ADMIN' } })
+    if (existingAdmin) {
+      await db.user.update({
+        where: { id: existingAdmin.id },
+        data: { isActive: true },
+      })
+      log(`  OK Admin user already exists: ${existingAdmin.email} (unchanged)`)
+    } else {
+      const adminEmail = process.env.ADMIN_EMAIL || 'admin@platform.sa'
+      const adminPassword = process.env.ADMIN_PASSWORD || 'admin123'
+      const adminName = process.env.ADMIN_NAME || 'Platform Admin'
+      const adminPasswordHash = await hashPassword(adminPassword)
+      await db.user.create({
+        data: {
+          email: adminEmail,
+          name: adminName,
+          passwordHash: adminPasswordHash,
+          role: 'ADMIN',
+          isActive: true,
+        },
+      })
+      log(`  OK Admin user created: ${adminEmail}`)
+    }
   
     log('Seeding complete!')
 
