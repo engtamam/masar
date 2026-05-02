@@ -95,6 +95,7 @@ ifeq ($(CONFIRM),DESTROY)
 	@echo '🛑 Removing Docker images...'
 	-docker system prune -af --volumes
 	@echo '🛑 Deleting all local files...'
+	-rm -rf .next node_modules db/ upload/ backups/ mini-services/chat-service/node_modules .env .env.local
 	-powershell -Command "Remove-Item -Recurse -Force -ErrorAction SilentlyContinue .next, node_modules, db, upload, backups, mini-services/chat-service/node_modules; Remove-Item -Force -ErrorAction SilentlyContinue .env, .env.local"
 	@echo ''
 	@echo '☢️  Everything destroyed. Starting from scratch:'
