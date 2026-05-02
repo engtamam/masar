@@ -29,6 +29,14 @@ import {
   Hourglass,
   UserCheck,
   Percent,
+  Filter,
+  Search,
+  Eye,
+  TrendingUp,
+  BarChart3,
+  AlertCircle,
+  Bell,
+  ArrowUpRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -192,7 +200,15 @@ interface BookingItem {
   notes?: string;
   cancellationReason?: string;
   consultant: BookingConsultant;
-  entrepreneur: BookingEntrepreneur;
+  entrepreneur?: BookingEntrepreneur;
+  project?: {
+    id: string;
+    name: string;
+    entrepreneur?: {
+      id: string;
+      user: EntrepreneurUser;
+    };
+  };
   milestoneProgress?: {
     id: string;
     milestoneDefault: {
@@ -454,6 +470,9 @@ export function ConsultantOverview() {
   const [bookingsData, setBookingsData] = useState<BookingsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [rejectComment, setRejectComment] = useState('');
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectTarget, setRejectTarget] = useState<MilestoneProgressItem | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -541,17 +560,20 @@ export function ConsultantOverview() {
     }
   };
 
-  const handleQuickReject = async (mp: MilestoneProgressItem) => {
-    if (!mp.project?.id) return;
-    setActionLoading(mp.id);
+  const handleQuickReject = async () => {
+    if (!rejectTarget || !rejectTarget.project?.id) return;
+    setActionLoading(rejectTarget.id);
     try {
-      const res = await milestonesApi.approveMilestone(mp.id, {
-        projectId: mp.project.id,
+      const res = await milestonesApi.approveMilestone(rejectTarget.id, {
+        projectId: rejectTarget.project.id,
         status: 'REJECTED',
-        comment: 'مرفوض من المستشار',
+        comment: rejectComment || undefined,
       });
       if (res.success) {
         toast.success('تم رفض المرحلة');
+        setRejectComment('');
+        setRejectDialogOpen(false);
+        setRejectTarget(null);
         await loadData();
       } else {
         toast.error(res.error || 'فشل في رفض المرحلة');
@@ -561,6 +583,12 @@ export function ConsultantOverview() {
     } finally {
       setActionLoading(null);
     }
+  };
+
+  const openRejectDialog = (mp: MilestoneProgressItem) => {
+    setRejectTarget(mp);
+    setRejectComment('');
+    setRejectDialogOpen(true);
   };
 
   if (loading) {
@@ -705,7 +733,7 @@ export function ConsultantOverview() {
                       size="sm"
                       variant="outline"
                       className="text-red-600 border-red-200 hover:bg-red-50 h-8"
-                      onClick={() => handleQuickReject(mp)}
+                      onClick={() => openRejectDialog(mp)}
                       disabled={actionLoading === mp.id}
                     >
                       {actionLoading === mp.id ? (
@@ -722,6 +750,179 @@ export function ConsultantOverview() {
           )}
         </CardContent>
       </Card>
+
+      {/* Upcoming Sessions */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-emerald-500" />
+              الجلسات القادمة
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {(() => {
+              const upcoming = (bookingsData?.bookings || [])
+                .filter((b) => b.status === 'CONFIRMED')
+                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                .slice(0, 5);
+              if (upcoming.length === 0) {
+                return (
+                  <p className="text-sm text-muted-foreground text-center py-6">
+                    لا توجد جلسات قادمة
+                  </p>
+                );
+              }
+              return (
+                <div className="space-y-3">
+                  {upcoming.map((booking) => (
+                    <div
+                      key={booking.id}
+                      className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50/50 border border-emerald-100"
+                    >
+                      <Avatar className="w-9 h-9">
+                        <AvatarFallback className="bg-emerald-100 text-emerald-700 text-xs">
+                          {booking.project?.entrepreneur?.user
+                            ? getInitials(booking.project.entrepreneur.user.name)
+                            : '؟'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {booking.project?.entrepreneur?.user?.name || booking.project?.name || 'رائد أعمال'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatDateShort(booking.date)} · {formatTime(booking.startTime)} - {formatTime(booking.endTime)}
+                        </p>
+                        {booking.milestoneProgress && (
+                          <p className="text-xs text-emerald-600 mt-0.5">
+                            {booking.milestoneProgress.milestoneDefault.titleAr}
+                          </p>
+                        )}
+                      </div>
+                      {booking.meetingRoomId && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-emerald-600 border-emerald-200 hover:bg-emerald-50 h-8"
+                          onClick={() => window.open(`/meeting/${booking.meetingRoomId}`, '_self')}
+                        >
+                          <Video className="w-3.5 h-3.5" />
+                          <span>انضم</span>
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </CardContent>
+        </Card>
+
+        {/* Recent Activity */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-purple-500" />
+              آخر الأنشطة
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {(() => {
+              const recentActivity = progress
+                .filter((p) => p.approvals.length > 0)
+                .sort((a, b) => {
+                  const aTime = a.approvals[a.approvals.length - 1]?.createdAt
+                    ? new Date(a.approvals[a.approvals.length - 1].createdAt).getTime()
+                    : 0;
+                  const bTime = b.approvals[b.approvals.length - 1]?.createdAt
+                    ? new Date(b.approvals[b.approvals.length - 1].createdAt).getTime()
+                    : 0;
+                  return bTime - aTime;
+                })
+                .slice(0, 5);
+              if (recentActivity.length === 0) {
+                return (
+                  <p className="text-sm text-muted-foreground text-center py-6">
+                    لا توجد أنشطة حديثة
+                  </p>
+                );
+              }
+              return (
+                <div className="space-y-3">
+                  {recentActivity.map((mp) => {
+                    const lastApproval = mp.approvals[mp.approvals.length - 1];
+                    const isApproved = lastApproval?.status === 'APPROVED';
+                    return (
+                      <div
+                        key={mp.id}
+                        className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100"
+                      >
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isApproved ? 'bg-emerald-100' : 'bg-red-100'}`}>
+                          {isApproved ? (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          ) : (
+                            <X className="w-4 h-4 text-red-600" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">
+                            {mp.milestoneDefault.titleAr}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {mp.project?.entrepreneur?.user?.name || mp.project?.name || 'رائد أعمال'}
+                            {lastApproval?.createdAt && ` · ${formatDateShort(lastApproval.createdAt)}`}
+                          </p>
+                        </div>
+                        <Badge className={`${isApproved ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'} border-0 text-xs`}>
+                          {isApproved ? 'معتمد' : 'مرفوض'}
+                        </Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Reject Dialog */}
+      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+        <DialogContent dir="rtl">
+          <DialogHeader>
+            <DialogTitle>رفض المرحلة</DialogTitle>
+            <DialogDescription>
+              أضف تعليقاً يوضح سبب الرفض ليستفيد منه رائد الأعمال
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <Textarea
+              placeholder="أضف تعليقك هنا..."
+              value={rejectComment}
+              onChange={(e) => setRejectComment(e.target.value)}
+              className="min-h-[80px] resize-none"
+            />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => { setRejectDialogOpen(false); setRejectTarget(null); }}>
+              تراجع
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleQuickReject}
+              disabled={actionLoading === rejectTarget?.id}
+            >
+              {actionLoading === rejectTarget?.id ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <X className="w-4 h-4" />
+              )}
+              <span>رفض</span>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -736,6 +937,7 @@ export function ConsultantSchedule() {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [cloneLoading, setCloneLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [bookingStatusFilter, setBookingStatusFilter] = useState<string>('all');
 
   // New slot form state
   const [newDay, setNewDay] = useState<string>('');
@@ -880,10 +1082,23 @@ export function ConsultantSchedule() {
     slotsByDay[slot.dayOfWeek].push(slot);
   }
 
-  // Upcoming confirmed bookings
-  const upcomingBookings = bookings
-    .filter((b) => b.status === 'CONFIRMED')
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  // Session statistics
+  const now = new Date();
+  const thisMonth = bookings.filter((b) => {
+    const d = new Date(b.date);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  });
+  const stats = {
+    total: thisMonth.length,
+    completed: thisMonth.filter((b) => b.status === 'COMPLETED').length,
+    upcoming: thisMonth.filter((b) => b.status === 'CONFIRMED').length,
+    cancelled: thisMonth.filter((b) => b.status === 'CANCELLED' || b.status === 'NO_SHOW').length,
+  };
+
+  // Filtered bookings
+  const filteredBookings = bookings
+    .filter((b) => bookingStatusFilter === 'all' || b.status === bookingStatusFilter)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   if (loading) {
     return (
@@ -1076,18 +1291,67 @@ export function ConsultantSchedule() {
         {/* Bookings Tab */}
         <TabsContent value="bookings">
           <div className="space-y-4">
-            <h2 className="text-xl font-bold text-gray-900">الحجوزات القادمة</h2>
+            {/* Session Stats */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <Card className="border-blue-100 bg-gradient-to-br from-blue-50 to-white">
+                <CardContent className="p-3 text-center">
+                  <p className="text-lg font-bold text-blue-700">{stats.total}</p>
+                  <p className="text-xs text-muted-foreground">إجمالي الشهر</p>
+                </CardContent>
+              </Card>
+              <Card className="border-emerald-100 bg-gradient-to-br from-emerald-50 to-white">
+                <CardContent className="p-3 text-center">
+                  <p className="text-lg font-bold text-emerald-700">{stats.completed}</p>
+                  <p className="text-xs text-muted-foreground">مكتملة</p>
+                </CardContent>
+              </Card>
+              <Card className="border-amber-100 bg-gradient-to-br from-amber-50 to-white">
+                <CardContent className="p-3 text-center">
+                  <p className="text-lg font-bold text-amber-700">{stats.upcoming}</p>
+                  <p className="text-xs text-muted-foreground">قادمة</p>
+                </CardContent>
+              </Card>
+              <Card className="border-red-100 bg-gradient-to-br from-red-50 to-white">
+                <CardContent className="p-3 text-center">
+                  <p className="text-lg font-bold text-red-700">{stats.cancelled}</p>
+                  <p className="text-xs text-muted-foreground">ملغاة/لم يحضر</p>
+                </CardContent>
+              </Card>
+            </div>
 
-            {upcomingBookings.length === 0 ? (
+            {/* Filter and header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <h2 className="text-xl font-bold text-gray-900">الحجوزات</h2>
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-muted-foreground" />
+                <Select value={bookingStatusFilter} onValueChange={setBookingStatusFilter}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">الكل</SelectItem>
+                    <SelectItem value="CONFIRMED">مؤكد</SelectItem>
+                    <SelectItem value="IN_PROGRESS">جاري</SelectItem>
+                    <SelectItem value="COMPLETED">مكتمل</SelectItem>
+                    <SelectItem value="CANCELLED">ملغى</SelectItem>
+                    <SelectItem value="NO_SHOW">لم يحضر</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {filteredBookings.length === 0 ? (
               <Card>
                 <CardContent className="py-12 text-center">
                   <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-muted-foreground">لا توجد حجوزات قادمة</p>
+                  <p className="text-muted-foreground">
+                    {bookingStatusFilter === 'all' ? 'لا توجد حجوزات' : 'لا توجد حجوزات بهذه الحالة'}
+                  </p>
                 </CardContent>
               </Card>
             ) : (
               <div className="space-y-3">
-                {upcomingBookings.map((booking) => {
+                {filteredBookings.map((booking) => {
                   const statusInfo = BOOKING_STATUS_MAP[booking.status];
                   return (
                     <Card key={booking.id} className="overflow-hidden">
@@ -1122,7 +1386,7 @@ export function ConsultantSchedule() {
                           <div className="flex items-center gap-2 flex-shrink-0">
                             <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
 
-                            {booking.meetingRoomId && (
+                            {booking.meetingRoomId && (booking.status === 'CONFIRMED' || booking.status === 'IN_PROGRESS') && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -1180,6 +1444,14 @@ export function ConsultantSchedule() {
 
 // ========== 5. ConsultantEntrepreneurs ==========
 
+interface ProjectGroup {
+  projectId: string;
+  projectName: string;
+  projectStage?: string;
+  entrepreneur?: EntrepreneurProfile;
+  milestones: MilestoneProgressItem[];
+}
+
 export function ConsultantEntrepreneurs() {
   const { user } = useAppStore();
   const [data, setData] = useState<MilestonesResponse | null>(null);
@@ -1189,6 +1461,8 @@ export function ConsultantEntrepreneurs() {
   const [rejectComment, setRejectComment] = useState('');
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<MilestoneProgressItem | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -1208,22 +1482,55 @@ export function ConsultantEntrepreneurs() {
     loadData();
   }, [loadData]);
 
-  // Group progress by entrepreneur
+  // Group progress by project
   const progress = data?.progress || [];
-  const entrepreneurMap = new Map<string, EntrepreneurProfile & { milestones: MilestoneProgressItem[] }>();
+  const projectMap = new Map<string, ProjectGroup>();
 
   for (const mp of progress) {
-    const entId = mp.project?.entrepreneur?.id || mp.project?.id || 'unknown';
-    if (!entrepreneurMap.has(entId)) {
-      entrepreneurMap.set(entId, {
-        ...(mp.project?.entrepreneur || { id: entId, user: { id: entId, name: mp.project?.name || 'رائد أعمال', email: '' } }),
+    const projId = mp.project?.id || 'unknown';
+    if (!projectMap.has(projId)) {
+      projectMap.set(projId, {
+        projectId: projId,
+        projectName: mp.project?.name || 'مشروع بدون اسم',
+        projectStage: mp.project?.stage,
+        entrepreneur: mp.project?.entrepreneur,
         milestones: [],
       });
     }
-    entrepreneurMap.get(entId)!.milestones.push(mp);
+    projectMap.get(projId)!.milestones.push(mp);
   }
 
-  const entrepreneurs = Array.from(entrepreneurMap.values());
+  const allProjects = Array.from(projectMap.values());
+
+  // Filter projects
+  const filteredProjects = allProjects.filter((project) => {
+    // Search filter
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      const nameMatch = project.projectName.toLowerCase().includes(q);
+      const entMatch = project.entrepreneur?.user?.name?.toLowerCase().includes(q);
+      if (!nameMatch && !entMatch) return false;
+    }
+    // Status filter
+    if (statusFilter !== 'all') {
+      const hasMatchingMilestone = project.milestones.some((m) => m.status === statusFilter);
+      if (!hasMatchingMilestone) return false;
+    }
+    return true;
+  });
+
+  // Sort: projects with SUBMITTED milestones first, then IN_PROGRESS, then rest
+  filteredProjects.sort((a, b) => {
+    const aHasSubmitted = a.milestones.some((m) => m.status === 'SUBMITTED');
+    const bHasSubmitted = b.milestones.some((m) => m.status === 'SUBMITTED');
+    if (aHasSubmitted && !bHasSubmitted) return -1;
+    if (!aHasSubmitted && bHasSubmitted) return 1;
+    const aHasInProgress = a.milestones.some((m) => m.status === 'IN_PROGRESS');
+    const bHasInProgress = b.milestones.some((m) => m.status === 'IN_PROGRESS');
+    if (aHasInProgress && !bHasInProgress) return -1;
+    if (!aHasInProgress && bHasInProgress) return 1;
+    return 0;
+  });
 
   const handleApprove = async (mp: MilestoneProgressItem) => {
     if (!mp.project?.id) return;
@@ -1278,6 +1585,13 @@ export function ConsultantEntrepreneurs() {
     window.open(downloadUrl, '_blank');
   };
 
+  // Compute project-level stats
+  const projectStats = {
+    total: allProjects.length,
+    submitted: allProjects.filter((p) => p.milestones.some((m) => m.status === 'SUBMITTED')).length,
+    inProgress: allProjects.filter((p) => p.milestones.some((m) => m.status === 'IN_PROGRESS') && !p.milestones.some((m) => m.status === 'SUBMITTED')).length,
+  };
+
   if (loading) {
     return (
       <div className="p-6 space-y-4">
@@ -1290,115 +1604,168 @@ export function ConsultantEntrepreneurs() {
   }
 
   return (
-    <div className="p-4 sm:p-6">
-      <h2 className="text-xl font-bold text-gray-900 mb-6">رواد الأعمال</h2>
+    <div className="p-4 sm:p-6 space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <h2 className="text-xl font-bold text-gray-900">المشاريع ورواد الأعمال</h2>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <BarChart3 className="w-4 h-4" />
+          <span>{projectStats.total} مشروع · {projectStats.submitted} بانتظار المراجعة</span>
+        </div>
+      </div>
 
-      {entrepreneurs.length === 0 ? (
+      {/* Search and Filter */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="بحث بالاسم أو المشروع..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pr-9"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-muted-foreground" />
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">جميع المشاريع</SelectItem>
+              <SelectItem value="SUBMITTED">بانتظار المراجعة</SelectItem>
+              <SelectItem value="IN_PROGRESS">قيد التنفيذ</SelectItem>
+              <SelectItem value="APPROVED">معتمد</SelectItem>
+              <SelectItem value="LOCKED">مقفل</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {filteredProjects.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-muted-foreground">لا يوجد رواد أعمال معينين لك حالياً</p>
+            <p className="text-muted-foreground">
+              {allProjects.length === 0
+                ? 'لا يوجد مشاريع معينة لك حالياً'
+                : 'لا توجد نتائج مطابقة للبحث'}
+            </p>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-4">
-          {entrepreneurs.map((ent) => {
-            // Find current milestone (first non-APPROVED or last SUBMITTED)
-            const currentMilestone = ent.milestones.find(
-              (m) => m.status === 'SUBMITTED' || m.status === 'IN_PROGRESS'
-            ) || ent.milestones[ent.milestones.length - 1];
+          {filteredProjects.map((project) => {
+            const sortedMilestones = [...project.milestones].sort(
+              (a, b) => a.milestoneDefault.sortOrder - b.milestoneDefault.sortOrder
+            );
+            // Find current active milestone
+            const submittedMilestone = sortedMilestones.find((m) => m.status === 'SUBMITTED');
+            const activeMilestone = submittedMilestone || sortedMilestones.find((m) => m.status === 'IN_PROGRESS') || sortedMilestones[sortedMilestones.length - 1];
+            const approvedCount = sortedMilestones.filter((m) => m.status === 'APPROVED').length;
+            const progressPercent = Math.round((approvedCount / sortedMilestones.length) * 100);
 
             return (
-              <Card key={ent.id} className="overflow-hidden">
+              <Card key={project.projectId} className="overflow-hidden">
                 <CardContent className="p-5">
-                  {/* Entrepreneur header */}
+                  {/* Project header */}
                   <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <Avatar className="w-12 h-12">
                         <AvatarFallback className="bg-emerald-100 text-emerald-700 text-base">
-                          {ent.user ? getInitials(ent.user.name) : '؟'}
+                          {project.entrepreneur?.user
+                            ? getInitials(project.entrepreneur.user.name)
+                            : getInitials(project.projectName)}
                         </AvatarFallback>
                       </Avatar>
                       <div className="min-w-0">
                         <p className="font-bold text-gray-900 truncate">
-                          {ent.user?.name || 'رائد أعمال'}
+                          {project.entrepreneur?.user?.name || 'رائد أعمال'}
                         </p>
-                        <p className="text-sm text-muted-foreground truncate">
-                          {ent.user?.email || ''}
+                        <p className="text-sm text-emerald-600 flex items-center gap-1 truncate">
+                          <Rocket className="w-3 h-3 flex-shrink-0" />
+                          {project.projectName}
                         </p>
-                        {ent.projectName && (
-                          <p className="text-xs text-emerald-600 mt-0.5 flex items-center gap-1">
-                            <Rocket className="w-3 h-3" />
-                            {ent.projectName}
-                          </p>
-                        )}
                       </div>
                     </div>
 
-                    {/* Current milestone status */}
-                    {currentMilestone && (
-                      <div className="text-sm flex-shrink-0">
-                        <p className="text-muted-foreground text-xs">المرحلة الحالية</p>
-                        <p className="font-medium">{currentMilestone.milestoneDefault.titleAr}</p>
-                        <Badge
-                          className={`${MILESTONE_STATUS_MAP[currentMilestone.status].bgColor} ${MILESTONE_STATUS_MAP[currentMilestone.status].color} border-0 text-xs mt-1`}
-                        >
-                          {MILESTONE_STATUS_MAP[currentMilestone.status].label}
-                        </Badge>
+                    {/* Progress indicator */}
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <div className="text-center">
+                        <p className="text-lg font-bold text-emerald-600">{progressPercent}%</p>
+                        <p className="text-[10px] text-muted-foreground">مكتمل</p>
                       </div>
-                    )}
+                      <div className="w-24">
+                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-emerald-500 rounded-full transition-all"
+                            style={{ width: `${progressPercent}%` }}
+                          />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-1 text-center">
+                          {approvedCount}/{sortedMilestones.length} مرحلة
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Milestone details */}
-                  {currentMilestone && (
+                  {/* Current milestone highlight */}
+                  {activeMilestone && (
                     <div className="mt-4">
-                      {/* SUBMITTED milestone: expandable section */}
-                      {currentMilestone.status === 'SUBMITTED' && (
-                        <div className="border rounded-xl overflow-hidden">
+                      {/* SUBMITTED milestone: expandable review section */}
+                      {activeMilestone.status === 'SUBMITTED' && (
+                        <div className="border rounded-xl overflow-hidden border-amber-200">
                           <button
                             className="w-full flex items-center justify-between p-3 bg-amber-50 hover:bg-amber-100 transition-colors text-sm font-medium text-amber-800"
                             onClick={() =>
                               setExpandedId(
-                                expandedId === `${ent.id}-${currentMilestone.id}`
+                                expandedId === `${project.projectId}-${activeMilestone.id}`
                                   ? null
-                                  : `${ent.id}-${currentMilestone.id}`
+                                  : `${project.projectId}-${activeMilestone.id}`
                               )
                             }
-                            aria-expanded={expandedId === `${ent.id}-${currentMilestone.id}`}
+                            aria-expanded={expandedId === `${project.projectId}-${activeMilestone.id}`}
                           >
                             <span className="flex items-center gap-2">
-                              <Clock className="w-4 h-4" />
-                              مرحلة مقدمة للمراجعة
+                              <AlertCircle className="w-4 h-4" />
+                              {activeMilestone.milestoneDefault.titleAr} — بانتظار المراجعة
                             </span>
-                            {expandedId === `${ent.id}-${currentMilestone.id}` ? (
+                            {expandedId === `${project.projectId}-${activeMilestone.id}` ? (
                               <ChevronUp className="w-4 h-4" />
                             ) : (
                               <ChevronDown className="w-4 h-4" />
                             )}
                           </button>
 
-                          {expandedId === `${ent.id}-${currentMilestone.id}` && (
+                          {expandedId === `${project.projectId}-${activeMilestone.id}` && (
                             <div className="p-4 space-y-4 bg-white">
                               {/* Entrepreneur notes */}
-                              {currentMilestone.notes && (
+                              {activeMilestone.notes && (
                                 <div>
                                   <h4 className="text-sm font-medium text-gray-700 mb-1">
                                     ملاحظات رائد الأعمال
                                   </h4>
                                   <p className="text-sm text-muted-foreground bg-gray-50 p-3 rounded-lg">
-                                    {currentMilestone.notes}
+                                    {activeMilestone.notes}
                                   </p>
                                 </div>
                               )}
 
+                              {/* Submitted date */}
+                              {activeMilestone.submittedAt && (
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <Clock className="w-3.5 h-3.5" />
+                                  <span>تقديم: {formatDate(activeMilestone.submittedAt)}</span>
+                                </div>
+                              )}
+
                               {/* Uploaded files */}
-                              {currentMilestone.files && currentMilestone.files.length > 0 && (
+                              {activeMilestone.files && activeMilestone.files.length > 0 && (
                                 <div>
                                   <h4 className="text-sm font-medium text-gray-700 mb-2">
-                                    الملفات المرفقة ({currentMilestone.files.length})
+                                    الملفات المرفقة ({activeMilestone.files.length})
                                   </h4>
                                   <div className="space-y-2">
-                                    {currentMilestone.files.map((file) => (
+                                    {activeMilestone.files.map((file) => (
                                       <div
                                         key={file.id}
                                         className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg text-sm"
@@ -1426,10 +1793,10 @@ export function ConsultantEntrepreneurs() {
                               <div className="flex flex-col sm:flex-row gap-3 pt-2">
                                 <Button
                                   className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-                                  onClick={() => handleApprove(currentMilestone)}
-                                  disabled={actionLoading === currentMilestone.id}
+                                  onClick={() => handleApprove(activeMilestone)}
+                                  disabled={actionLoading === activeMilestone.id}
                                 >
-                                  {actionLoading === currentMilestone.id ? (
+                                  {actionLoading === activeMilestone.id ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />
                                   ) : (
                                     <CheckCircle2 className="w-4 h-4" />
@@ -1440,13 +1807,13 @@ export function ConsultantEntrepreneurs() {
                                   variant="outline"
                                   className="flex-1 text-red-600 border-red-200 hover:bg-red-50"
                                   onClick={() => {
-                                    setRejectTarget(currentMilestone);
+                                    setRejectTarget(activeMilestone);
                                     setRejectDialogOpen(true);
                                   }}
-                                  disabled={actionLoading === currentMilestone.id}
+                                  disabled={actionLoading === activeMilestone.id}
                                 >
                                   <X className="w-4 h-4" />
-                                  <span>رفض</span>
+                                  <span>رفض مع تعليق</span>
                                 </Button>
                               </div>
                             </div>
@@ -1455,62 +1822,65 @@ export function ConsultantEntrepreneurs() {
                       )}
 
                       {/* IN_PROGRESS milestone */}
-                      {currentMilestone.status === 'IN_PROGRESS' && (
-                        <div className="p-3 bg-blue-50 rounded-xl flex items-center gap-2 text-blue-700 text-sm">
-                          <Hourglass className="w-4 h-4" />
-                          <span>بانتظار التقديم</span>
+                      {activeMilestone.status === 'IN_PROGRESS' && (
+                        <div className="p-3 bg-blue-50 rounded-xl flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-blue-700 text-sm">
+                            <Hourglass className="w-4 h-4" />
+                            <span>{activeMilestone.milestoneDefault.titleAr} — بانتظار التقديم</span>
+                          </div>
+                          <Badge className="bg-blue-100 text-blue-700 border-0 text-xs">
+                            قيد التنفيذ
+                          </Badge>
                         </div>
                       )}
 
                       {/* APPROVED milestone */}
-                      {currentMilestone.status === 'APPROVED' && (
+                      {activeMilestone.status === 'APPROVED' && !submittedMilestone && (
                         <div className="p-3 bg-emerald-50 rounded-xl flex items-center justify-between">
                           <div className="flex items-center gap-2 text-emerald-700 text-sm">
                             <CheckCircle2 className="w-4 h-4" />
-                            <span>تم الاعتماد</span>
+                            <span>{activeMilestone.milestoneDefault.titleAr} — تم الاعتماد</span>
                           </div>
-                          {currentMilestone.approvedAt && (
+                          {activeMilestone.approvedAt && (
                             <span className="text-xs text-emerald-600">
-                              {formatDate(currentMilestone.approvedAt)}
+                              {formatDate(activeMilestone.approvedAt)}
                             </span>
                           )}
                         </div>
                       )}
 
                       {/* LOCKED milestone */}
-                      {currentMilestone.status === 'LOCKED' && (
+                      {activeMilestone.status === 'LOCKED' && (
                         <div className="p-3 bg-gray-50 rounded-xl flex items-center gap-2 text-gray-400 text-sm">
                           <Clock className="w-4 h-4" />
-                          <span>لم تبدأ بعد</span>
+                          <span>جميع المراحل المفتوحة مكتملة</span>
                         </div>
                       )}
                     </div>
                   )}
 
                   {/* All milestones mini-progress */}
-                  {ent.milestones.length > 1 && (
+                  {sortedMilestones.length > 1 && (
                     <div className="mt-4 pt-3 border-t">
-                      <p className="text-xs text-muted-foreground mb-2">جميع المراحل</p>
+                      <p className="text-xs text-muted-foreground mb-2">مسيرة المراحل</p>
                       <div className="flex flex-wrap gap-1.5">
-                        {ent.milestones
-                          .sort((a, b) => a.milestoneDefault.sortOrder - b.milestoneDefault.sortOrder)
-                          .map((mp) => (
-                            <Badge
-                              key={mp.id}
-                              variant="outline"
-                              className={`text-[10px] px-1.5 py-0.5 ${
-                                mp.status === 'APPROVED'
-                                  ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
-                                  : mp.status === 'SUBMITTED'
-                                  ? 'bg-amber-50 text-amber-600 border-amber-200'
-                                  : mp.status === 'IN_PROGRESS'
-                                  ? 'bg-blue-50 text-blue-600 border-blue-200'
-                                  : 'bg-gray-50 text-gray-400 border-gray-200'
-                              }`}
-                            >
-                              {mp.milestoneDefault.titleAr}
-                            </Badge>
-                          ))}
+                        {sortedMilestones.map((mp) => (
+                          <Badge
+                            key={mp.id}
+                            variant="outline"
+                            className={`text-[10px] px-1.5 py-0.5 ${
+                              mp.status === 'APPROVED'
+                                ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                                : mp.status === 'SUBMITTED'
+                                ? 'bg-amber-50 text-amber-600 border-amber-200'
+                                : mp.status === 'IN_PROGRESS'
+                                ? 'bg-blue-50 text-blue-600 border-blue-200'
+                                : 'bg-gray-50 text-gray-400 border-gray-200'
+                            }`}
+                          >
+                            {mp.milestoneDefault.titleAr}
+                          </Badge>
+                        ))}
                       </div>
                     </div>
                   )}
@@ -1527,12 +1897,20 @@ export function ConsultantEntrepreneurs() {
           <DialogHeader>
             <DialogTitle>رفض المرحلة</DialogTitle>
             <DialogDescription>
-              أضف تعليقاً يوضح سبب الرفض (اختياري)
+              أضف تعليقاً يوضح سبب الرفض ليستفيد منه رائد الأعمال
             </DialogDescription>
           </DialogHeader>
+          {rejectTarget && (
+            <div className="p-3 bg-amber-50 rounded-lg text-sm">
+              <p className="font-medium">{rejectTarget.milestoneDefault.titleAr}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {rejectTarget.project?.name || 'مشروع'}
+              </p>
+            </div>
+          )}
           <div className="py-2">
             <Textarea
-              placeholder="أضف تعليقك هنا..."
+              placeholder="أضف تعليقك هنا... (اختياري)"
               value={rejectComment}
               onChange={(e) => setRejectComment(e.target.value)}
               className="min-h-[80px] resize-none"
@@ -1662,7 +2040,7 @@ export function ConsultantChat() {
   const selectedRoom = rooms.find((r) => r.id === activeChatRoomId);
 
   return (
-    <div className="flex h-[calc(100vh-0px)]" dir="rtl">
+    <div className="flex h-[calc(100vh-4rem)]" dir="rtl">
       {/* Chat rooms list (right side in RTL) */}
       <div className="w-72 border-l bg-gray-50 flex flex-col">
         <div className="p-4 border-b">
@@ -1709,7 +2087,7 @@ export function ConsultantChat() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm truncate">
-                        {room.name || otherMember?.name || 'محادثة'}
+                        {otherMember?.name || room.name || 'محادثة'}
                       </p>
                       {lastMessage && (
                         <p className="text-xs text-muted-foreground truncate">
@@ -1738,7 +2116,7 @@ export function ConsultantChat() {
               </Avatar>
               <div>
                 <p className="font-semibold text-sm">
-                  {selectedRoom.name || getOtherMember(selectedRoom)?.name || 'محادثة'}
+                  {getOtherMember(selectedRoom)?.name || selectedRoom.name || 'محادثة'}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {getOtherMember(selectedRoom)?.role === 'ENTREPRENEUR'
@@ -1769,7 +2147,7 @@ export function ConsultantChat() {
                     return (
                       <div
                         key={msg.id}
-                        className={`flex ${isOwn ? 'justify-start' : 'justify-end'}`}
+                        className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
                       >
                         <div
                           className={`max-w-[75%] rounded-2xl px-4 py-2 ${
