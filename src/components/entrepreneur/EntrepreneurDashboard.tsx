@@ -1620,6 +1620,8 @@ export function EntrepreneurBookings() {
   const [loadingConsultants, setLoadingConsultants] = useState(false);
   const [loadingAvailability, setLoadingAvailability] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [currentMilestone, setCurrentMilestone] = useState<MilestoneProgressItem | null>(null);
+  const [loadingMilestone, setLoadingMilestone] = useState(false);
 
   const loadBookings = useCallback(async () => {
     setLoading(true);
@@ -1640,19 +1642,48 @@ export function EntrepreneurBookings() {
     loadBookings();
   }, [loadBookings]);
 
-  // Load consultants when dialog opens
+  // Load current milestone and filtered consultants when dialog opens
   useEffect(() => {
     if (showBookDialog) {
-      setLoadingConsultants(true);
-      consultantsApi.getConsultants().then((res) => {
-        if (res.success && res.data) {
-          setConsultants(res.data as ConsultantInfo[]);
+      let cancelled = false;
+
+      (async () => {
+        setLoadingMilestone(true);
+        setLoadingConsultants(true);
+
+        let specialtyId: string | undefined;
+
+        try {
+          // Load milestones to find the current IN_PROGRESS milestone
+          const milestonesRes = await milestonesApi.getMyMilestones(currentProjectId || undefined);
+          if (!cancelled && milestonesRes.success && milestonesRes.data) {
+            const data = milestonesRes.data as MilestonesResponse;
+            const inProgress = (data.progress || []).find(
+              (mp) => mp.status === 'IN_PROGRESS'
+            );
+            setCurrentMilestone(inProgress || null);
+            specialtyId = inProgress?.milestoneDefault?.specialty?.id;
+          }
+        } catch {
+          // Silently handle - will load all consultants as fallback
+        } finally {
+          if (!cancelled) setLoadingMilestone(false);
         }
-      }).catch(() => {
-        toast.error('حدث خطأ في تحميل المستشارين');
-      }).finally(() => {
-        setLoadingConsultants(false);
-      });
+
+        try {
+          // Load consultants filtered by the milestone's specialty
+          const consultantsRes = await consultantsApi.getConsultants(specialtyId);
+          if (!cancelled && consultantsRes.success && consultantsRes.data) {
+            setConsultants(consultantsRes.data as ConsultantInfo[]);
+          }
+        } catch {
+          if (!cancelled) toast.error('حدث خطأ في تحميل المستشارين');
+        } finally {
+          if (!cancelled) setLoadingConsultants(false);
+        }
+      })();
+
+      return () => { cancelled = true; };
     } else {
       // Reset state when dialog closes
       setSelectedConsultant(null);
@@ -1661,8 +1692,9 @@ export function EntrepreneurBookings() {
       setSelectedStartTime('');
       setSelectedEndTime('');
       setBookingNotes('');
+      setCurrentMilestone(null);
     }
-  }, [showBookDialog]);
+  }, [showBookDialog, currentProjectId]);
 
   // Load availability when consultant is selected
   useEffect(() => {
@@ -1701,6 +1733,7 @@ export function EntrepreneurBookings() {
         date: selectedDate,
         startTime: selectedStartTime,
         endTime: selectedEndTime,
+        milestoneProgressId: currentMilestone?.id,
         notes: bookingNotes.trim() || undefined,
       });
       if (res.success) {
@@ -1964,16 +1997,44 @@ export function EntrepreneurBookings() {
           </DialogHeader>
 
           <div className="space-y-5">
+            {/* Current milestone info */}
+            {loadingMilestone ? (
+              <div className="flex items-center gap-2 text-sm text-gray-400">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                جاري تحميل المرحلة الحالية...
+              </div>
+            ) : currentMilestone ? (
+              <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
+                <Map className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                <span className="text-blue-700">
+                  حجز جلسة للمرحلة: <strong>{currentMilestone.milestoneDefault.titleAr}</strong>
+                  <span className="text-blue-500 mr-1">({currentMilestone.milestoneDefault.specialty.nameAr})</span>
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm">
+                <Clock className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                <span className="text-amber-700">لا توجد مرحلة نشطة حالياً - سيتم عرض جميع المستشارين</span>
+              </div>
+            )}
+
             {/* Step 1: Select Consultant */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">اختر المستشار *</label>
+              <label className="text-sm font-medium text-gray-700">
+                {currentMilestone ? `اختر مستشار (${currentMilestone.milestoneDefault.specialty.nameAr})` : 'اختر المستشار'} *
+              </label>
               {loadingConsultants ? (
                 <div className="flex items-center gap-2 text-sm text-gray-400">
                   <Loader2 className="w-4 h-4 animate-spin" />
                   جاري تحميل المستشارين...
                 </div>
               ) : consultants.length === 0 ? (
-                <p className="text-sm text-gray-400">لا يوجد مستشارين متاحين حالياً</p>
+                <p className="text-sm text-gray-400">
+                  {currentMilestone
+                    ? `لا يوجد مستشارين متاحين لتخصص "${currentMilestone.milestoneDefault.specialty.nameAr}" حالياً`
+                    : 'لا يوجد مستشارين متاحين حالياً'
+                  }
+                </p>
               ) : (
                 <div className="space-y-2 max-h-48 overflow-y-auto">
                   {consultants.map((c) => (
@@ -2091,6 +2152,9 @@ export function EntrepreneurBookings() {
                     <p>المستشار: {selectedConsultant.user.name} ({selectedConsultant.specialty.nameAr})</p>
                     <p>التاريخ: {selectedDate}</p>
                     <p>الوقت: {formatTime(selectedStartTime)} - {formatTime(selectedEndTime)}</p>
+                    {currentMilestone && (
+                      <p>المرحلة: {currentMilestone.milestoneDefault.titleAr} ({currentMilestone.milestoneDefault.specialty.nameAr})</p>
+                    )}
                     <p>المشروع: {projects.find((p) => p.id === currentProjectId)?.name || 'غير محدد'}</p>
                   </div>
                 </CardContent>
