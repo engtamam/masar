@@ -8,7 +8,11 @@ import { io, Socket } from 'socket.io-client'
 // Configuration
 // ============================================================================
 
-const CHAT_SERVICE_URL = process.env.NEXT_PUBLIC_CHAT_URL || 'http://localhost:3003'
+// In production (Docker), Socket.IO is proxied via Caddy at /socket.io/*
+// so we use the same origin. In development, we connect directly to the chat service.
+const CHAT_SERVICE_URL = typeof window !== 'undefined' && process.env.NODE_ENV === 'production'
+  ? window.location.origin
+  : (process.env.NEXT_PUBLIC_CHAT_URL || 'http://localhost:3003')
 
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
