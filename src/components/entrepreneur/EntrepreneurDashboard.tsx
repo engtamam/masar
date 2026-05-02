@@ -2884,15 +2884,30 @@ export function EntrepreneurConsultants() {
 
 // ========== 8. EntrepreneurFiles ==========
 
+/** Get file type color and icon based on extension */
+function getFileTypeInfo(fileName: string): { color: string; bgColor: string; type: string } {
+  const ext = fileName.split('.').pop()?.toLowerCase() || '';
+  if (['pdf'].includes(ext)) return { color: 'text-red-600', bgColor: 'bg-red-50', type: 'PDF' };
+  if (['doc', 'docx'].includes(ext)) return { color: 'text-blue-600', bgColor: 'bg-blue-50', type: 'DOC' };
+  if (['xls', 'xlsx'].includes(ext)) return { color: 'text-green-600', bgColor: 'bg-green-50', type: 'XLS' };
+  if (['ppt', 'pptx'].includes(ext)) return { color: 'text-orange-600', bgColor: 'bg-orange-50', type: 'PPT' };
+  if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp'].includes(ext)) return { color: 'text-purple-600', bgColor: 'bg-purple-50', type: 'IMG' };
+  if (['zip', 'rar', '7z'].includes(ext)) return { color: 'text-yellow-600', bgColor: 'bg-yellow-50', type: 'ZIP' };
+  return { color: 'text-gray-600', bgColor: 'bg-gray-50', type: ext.toUpperCase() || 'ملف' };
+}
+
 export function EntrepreneurFiles() {
-  const { user, currentProjectId } = useAppStore();
+  const { user, currentProjectId, projects } = useAppStore();
   const [files, setFiles] = useState<UploadedFileInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedMilestone, setSelectedMilestone] = useState<string>('');
   const [milestones, setMilestones] = useState<MilestoneProgressItem[]>([]);
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const currentProject = projects.find((p) => p.id === currentProjectId);
 
   const loadFiles = useCallback(async () => {
     setLoading(true);
@@ -2913,11 +2928,15 @@ export function EntrepreneurFiles() {
     } finally {
       setLoading(false);
     }
-  }, [selectedMilestone]);
+  }, [selectedMilestone, currentProjectId]);
 
   const loadMilestones = useCallback(async () => {
+    if (!currentProjectId) {
+      setMilestones([]);
+      return;
+    }
     try {
-      const res = await milestonesApi.getMyMilestones(currentProjectId || undefined);
+      const res = await milestonesApi.getMyMilestones(currentProjectId);
       if (res.success && res.data) {
         const data = res.data as MilestonesResponse;
         setMilestones(data.progress || []);
@@ -2925,10 +2944,11 @@ export function EntrepreneurFiles() {
     } catch {
       // Silently handle
     }
-  }, []);
+  }, [currentProjectId]);
 
   useEffect(() => {
     loadMilestones();
+    setSelectedMilestone('');
   }, [loadMilestones]);
 
   useEffect(() => {
@@ -2937,12 +2957,16 @@ export function EntrepreneurFiles() {
 
   const handleUpload = async (filesList: FileList | null) => {
     if (!filesList || filesList.length === 0) return;
+    if (!currentProjectId) {
+      toast.error('الرجاء اختيار مشروع أولاً');
+      return;
+    }
     setUploading(true);
     try {
       for (let i = 0; i < filesList.length; i++) {
         const res = await filesApi.uploadFile(
           filesList[i],
-          { milestoneProgressId: selectedMilestone || undefined, projectId: currentProjectId || undefined }
+          { milestoneProgressId: selectedMilestone || undefined, projectId: currentProjectId }
         );
         if (!res.success) {
           toast.error(`فشل رفع الملف: ${filesList[i].name}`);
@@ -2974,66 +2998,141 @@ export function EntrepreneurFiles() {
     }
   };
 
-  const handleDownload = (fileId: string, fileName: string) => {
+  const handleDownload = (fileId: string) => {
     const url = filesApi.getFileUrl(fileId);
     const token = localStorage.getItem('auth_token');
-    // Open download in new tab with token as query param for auth
     const downloadUrl = `${url}?token=${token}`;
     window.open(downloadUrl, '_blank');
   };
 
-  return (
-    <div className="p-4 sm:p-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">الملفات</h2>
-        <div className="flex items-center gap-3">
-          {/* Milestone filter */}
-          <select
-            value={selectedMilestone}
-            onChange={(e) => setSelectedMilestone(e.target.value)}
-            className="text-sm border rounded-lg px-3 py-2 bg-white"
-          >
-            <option value="">جميع المراحل</option>
-            {milestones.map((mp) => (
-              <option key={mp.id} value={mp.id}>
-                {mp.milestoneDefault.titleAr}
-              </option>
-            ))}
-          </select>
+  // Compute stats
+  const totalSize = files.reduce((sum, f) => sum + f.fileSize, 0);
 
-          {/* Upload button */}
-          <Button
-            onClick={() => fileInputRef.current?.click()}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white"
-            disabled={uploading}
-          >
-            {uploading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>جاري الرفع...</span>
-              </>
-            ) : (
-              <>
-                <Upload className="w-4 h-4" />
-                <span>رفع ملف</span>
-              </>
+  // Group files by milestone for display (inline, no useMemo)
+  const milestoneGroups: { id: string; title: string; files: UploadedFileInfo[] }[] = [];
+  if (!selectedMilestone && files.length > 0) {
+    const groupMap: Record<string, { title: string; files: UploadedFileInfo[] }> = {};
+    const ungrouped: UploadedFileInfo[] = [];
+
+    for (const file of files) {
+      const msId = file.milestoneProgress?.milestoneDefault?.id;
+      if (msId && file.milestoneProgress) {
+        if (!groupMap[msId]) {
+          groupMap[msId] = {
+            title: file.milestoneProgress.milestoneDefault.titleAr,
+            files: [],
+          };
+        }
+        groupMap[msId].files.push(file);
+      } else {
+        ungrouped.push(file);
+      }
+    }
+
+    // Add groups in milestone order
+    for (const mp of milestones) {
+      const group = groupMap[mp.milestoneDefaultId];
+      if (group && group.files.length > 0) {
+        milestoneGroups.push({ id: mp.milestoneDefaultId, title: group.title, files: group.files });
+      }
+    }
+
+    // Add ungrouped
+    if (ungrouped.length > 0) {
+      milestoneGroups.push({ id: '__none__', title: 'ملفات عامة', files: ungrouped });
+    }
+  }
+
+  return (
+    <div className="p-4 sm:p-6" dir="rtl">
+      {/* Header */}
+      <div className="mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">الملفات</h2>
+            {currentProject && (
+              <p className="text-sm text-muted-foreground mt-1">
+                مشروع: <span className="font-medium text-emerald-700">{currentProject.name}</span>
+              </p>
             )}
-          </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={(e) => {
-              handleUpload(e.target.files);
-              e.target.value = '';
-            }}
-          />
+          </div>
+          <div className="flex items-center gap-3">
+            {/* Milestone filter */}
+            <select
+              value={selectedMilestone}
+              onChange={(e) => setSelectedMilestone(e.target.value)}
+              className="text-sm border border-gray-200 rounded-xl px-4 py-2.5 bg-white"
+            >
+              <option value="">جميع المراحل</option>
+              {milestones.map((mp) => (
+                <option key={mp.id} value={mp.id}>
+                  {mp.milestoneDefault.titleAr}
+                </option>
+              ))}
+            </select>
+
+            {/* Upload button */}
+            <Button
+              onClick={() => fileInputRef.current?.click()}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 rounded-xl"
+              disabled={uploading || !currentProjectId}
+            >
+              {uploading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>جاري الرفع...</span>
+                </>
+              ) : (
+                <>
+                  <Upload className="w-4 h-4" />
+                  <span>رفع ملف</span>
+                </>
+              )}
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                handleUpload(e.target.files);
+                e.target.value = '';
+              }}
+            />
+          </div>
         </div>
       </div>
 
-      {/* Files list */}
+      {/* No project warning */}
+      {!currentProjectId && (
+        <Card className="border-amber-200 bg-amber-50 mb-4">
+          <CardContent className="p-4 text-center">
+            <p className="text-amber-700 text-sm">الرجاء اختيار مشروع من القائمة الجانبية أولاً</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Stats bar */}
+      {!loading && files.length > 0 && (
+        <div className="flex items-center gap-4 mb-4 text-sm text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <File className="w-4 h-4" />
+            {files.length} ملف
+          </span>
+          <span className="flex items-center gap-1.5">
+            <FolderOpen className="w-4 h-4" />
+            {formatFileSize(totalSize)}
+          </span>
+          {files.some((f) => f.isEncrypted) && (
+            <span className="flex items-center gap-1.5 text-emerald-600">
+              <Lock className="w-4 h-4" />
+              مشفر
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Content */}
       {loading ? (
         <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -3042,69 +3141,150 @@ export function EntrepreneurFiles() {
         </div>
       ) : files.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center">
-            <FolderOpen className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-muted-foreground">لا توجد ملفات بعد</p>
+          <CardContent className="py-16 text-center">
+            <FolderOpen className="w-14 h-14 text-gray-200 mx-auto mb-4" />
+            <p className="text-lg font-medium text-gray-400">لا توجد ملفات بعد</p>
             <p className="text-sm text-muted-foreground mt-1">
-              ارفع ملفاتك المتعلقة بالمراحل المختلفة
+              {currentProjectId
+                ? 'ارفع ملفاتك المتعلقة بالمراحل المختلفة'
+                : 'اختر مشروعاً أولاً لعرض ملفاته'}
             </p>
           </CardContent>
         </Card>
-      ) : (
+      ) : selectedMilestone ? (
+        /* Flat list when filtering by specific milestone */
         <div className="space-y-2">
-          {files.map((file) => (
-            <Card key={file.id} className="overflow-hidden">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  {/* File icon */}
-                  <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
-                    <File className="w-5 h-5 text-emerald-600" />
-                  </div>
-
-                  {/* File info */}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{file.originalName}</p>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                      <span>{formatFileSize(file.fileSize)}</span>
-                      <span>·</span>
-                      <span>{formatDateShort(file.createdAt)}</span>
-                      {file.milestoneProgress && (
-                        <>
-                          <span>·</span>
-                          <span>{file.milestoneProgress.milestoneDefault.titleAr}</span>
-                        </>
-                      )}
+          {files.map((file) => {
+            const typeInfo = getFileTypeInfo(file.originalName);
+            return (
+              <Card key={file.id} className="overflow-hidden hover:shadow-sm transition-shadow">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-lg ${typeInfo.bgColor} flex items-center justify-center flex-shrink-0`}>
+                      <span className={`text-xs font-bold ${typeInfo.color}`}>{typeInfo.type}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{file.originalName}</p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                        <span>{formatFileSize(file.fileSize)}</span>
+                        <span>·</span>
+                        <span>{formatDateShort(file.createdAt)}</span>
+                        {file.isEncrypted && (
+                          <span className="text-emerald-600 flex items-center gap-0.5">
+                            <Lock className="w-3 h-3" />
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 text-emerald-600 hover:bg-emerald-50"
+                        onClick={() => handleDownload(file.id)}
+                        title="تنزيل"
+                      >
+                        <Download className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 text-red-500 hover:bg-red-50"
+                        onClick={() => handleDelete(file.id)}
+                        disabled={deletingId === file.id}
+                        title="حذف"
+                      >
+                        {deletingId === file.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
+                      </Button>
                     </div>
                   </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-8 w-8 text-emerald-600 hover:bg-emerald-50"
-                      onClick={() => handleDownload(file.id, file.originalName)}
-                      title="تنزيل"
-                    >
-                      <Download className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-8 w-8 text-red-500 hover:bg-red-50"
-                      onClick={() => handleDelete(file.id)}
-                      disabled={deletingId === file.id}
-                      title="حذف"
-                    >
-                      {deletingId === file.id ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="w-4 h-4" />
-                      )}
-                    </Button>
-                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      ) : (
+        /* Grouped by milestone when showing all */
+        <div className="space-y-4">
+          {milestoneGroups.map((group) => (
+            <Card key={group.id} className="overflow-hidden">
+              {/* Group header */}
+              <button
+                className="w-full flex items-center justify-between p-4 bg-gradient-to-l from-gray-50 to-white hover:from-gray-100 transition-colors"
+                onClick={() => setExpandedGroup(expandedGroup === group.id ? null : group.id)}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-1.5 h-6 bg-emerald-500 rounded-full" />
+                  <h3 className="text-sm font-semibold text-gray-700">{group.title}</h3>
+                  <Badge variant="secondary" className="text-xs">
+                    {group.files.length} ملف
+                  </Badge>
                 </div>
-              </CardContent>
+                {expandedGroup === group.id ? (
+                  <ChevronUp className="w-4 h-4 text-gray-400" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-gray-400" />
+                )}
+              </button>
+
+              {/* Group files */}
+              {expandedGroup === group.id && (
+                <CardContent className="p-3 pt-0 space-y-2">
+                  {group.files.map((file) => {
+                    const typeInfo = getFileTypeInfo(file.originalName);
+                    return (
+                      <div
+                        key={file.id}
+                        className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl"
+                      >
+                        <div className={`w-9 h-9 rounded-lg ${typeInfo.bgColor} flex items-center justify-center flex-shrink-0`}>
+                          <span className={`text-[10px] font-bold ${typeInfo.color}`}>{typeInfo.type}</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate">{file.originalName}</p>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                            <span>{formatFileSize(file.fileSize)}</span>
+                            <span>·</span>
+                            <span>{formatDateShort(file.createdAt)}</span>
+                            {file.isEncrypted && (
+                              <Lock className="w-3 h-3 text-emerald-500" />
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-emerald-600 hover:bg-emerald-50"
+                            onClick={() => handleDownload(file.id)}
+                            title="تنزيل"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-red-500 hover:bg-red-50"
+                            onClick={() => handleDelete(file.id)}
+                            disabled={deletingId === file.id}
+                            title="حذف"
+                          >
+                            {deletingId === file.id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-3.5 h-3.5" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </CardContent>
+              )}
             </Card>
           ))}
         </div>
