@@ -334,9 +334,17 @@ function formatDateShort(dateStr: string): string {
   }
 }
 
-/** Format time from HH:mm */
+/** Format time from HH:mm to Arabic display */
 function formatTime(time: string): string {
-  return time;
+  try {
+    const [hours, minutes] = time.split(':');
+    const h = parseInt(hours);
+    const ampm = h >= 12 ? 'م' : 'ص';
+    const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h;
+    return `${displayHour}:${minutes} ${ampm}`;
+  } catch {
+    return time;
+  }
 }
 
 /** Format file size */
