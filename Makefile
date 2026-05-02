@@ -96,7 +96,7 @@ nuke: ## Nuclear option: delete EVERYTHING (interactive confirmation)
 	@echo '║                                                         ║'
 	@echo '║  There is NO undo. You will start from ZERO.       ║'
 	@echo '╚══════════════════════════════════════════════════════════╝'
-	@read -p "Type 'DESTROY' to confirm: " confirm && [ "$$confirm" = "DESTROY" ] || (echo 'Aborted.' && exit 1)
+	@bash -c 'read -p "Type DESTROY to confirm: " c && [ "$$c" = "DESTROY" ] || { echo Aborted.; exit 1; }'
 	@echo ''
 	@echo '🛑 Nuking everything...'
 	@echo '🛑 Stopping Docker containers...'
