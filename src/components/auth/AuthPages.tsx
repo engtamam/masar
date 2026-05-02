@@ -84,30 +84,6 @@ function AuthLogo() {
   );
 }
 
-// ========== Role Info Box ==========
-// Shows how each role accesses the platform
-
-function RoleInfoBox() {
-  return (
-    <div className="mt-4 p-3 bg-emerald-50/80 rounded-lg border border-emerald-100">
-      <p className="text-xs font-semibold text-emerald-800 mb-2">كيف تدخل المنصة؟</p>
-      <div className="space-y-1.5">
-        <div className="flex items-center gap-2 text-xs text-gray-600">
-          <User className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-          <span><strong>رائد الأعمال:</strong> سجّل حسابك مباشرة من هنا</span>
-        </div>
-        <div className="flex items-center gap-2 text-xs text-gray-600">
-          <Users className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-          <span><strong>المستشار:</strong> يتم إنشاء حسابك من قبل الإدارة</span>
-        </div>
-        <div className="flex items-center gap-2 text-xs text-gray-600">
-          <Shield className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-          <span><strong>الإدارة:</strong> يتم إنشاء حسابك أثناء التثبيت</span>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ========== LoginPage ==========
 
@@ -138,7 +114,15 @@ export function LoginPage() {
       const result = await authApi.login(email.trim(), password);
 
       if (!result.success || !result.data) {
-        toast.error(result.error || 'فشل تسجيل الدخول. يرجى المحاولة مرة أخرى.');
+        // Map English API errors to Arabic
+        const errorMap: Record<string, string> = {
+          'Invalid email or password': 'البريد الإلكتروني أو كلمة المرور غير صحيحة',
+          'Authentication required': 'البريد الإلكتروني أو كلمة المرور غير صحيحة',
+          'Account is deactivated': 'هذا الحساب معطّل. تواصل مع الإدارة',
+          'INVALID_INPUT': 'يرجى ملء جميع الحقول المطلوبة',
+        };
+        const arabicError = errorMap[result.error || ''] || result.error || 'فشل تسجيل الدخول. يرجى المحاولة مرة أخرى.';
+        toast.error(arabicError);
         return;
       }
 
@@ -167,9 +151,6 @@ export function LoginPage() {
       <Card className="border-0 shadow-2xl bg-white/95 backdrop-blur-md">
         <CardHeader className="text-center pb-0">
           <h2 className="text-xl font-bold text-gray-900">تسجيل الدخول</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            جميع المستخدمين يدخلون من هنا — النظام يوجّهك تلقائياً
-          </p>
         </CardHeader>
 
         <CardContent>
@@ -258,8 +239,6 @@ export function LoginPage() {
             </button>
           </div>
 
-          {/* Role info box */}
-          <RoleInfoBox />
         </CardContent>
 
         <CardFooter className="justify-center pb-6">
