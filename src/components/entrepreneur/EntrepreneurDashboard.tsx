@@ -2276,7 +2276,7 @@ export function EntrepreneurChat() {
   const selectedRoom = rooms.find((r) => r.id === activeChatRoomId);
 
   return (
-    <div className="flex h-[calc(100vh-0px)]" dir="rtl">
+    <div className="flex h-[calc(100vh-4rem)]" dir="rtl">
       {/* Chat rooms list (right side in RTL) */}
       <div className="w-72 border-l bg-gray-50 flex flex-col">
         <div className="p-4 border-b">
@@ -2323,7 +2323,7 @@ export function EntrepreneurChat() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm truncate">
-                        {room.name || otherMember?.name || 'محادثة'}
+                        {otherMember?.name || room.name || 'محادثة'}
                       </p>
                       {lastMessage && (
                         <p className="text-xs text-muted-foreground truncate">
@@ -2352,7 +2352,7 @@ export function EntrepreneurChat() {
               </Avatar>
               <div>
                 <p className="font-semibold text-sm">
-                  {selectedRoom.name || getOtherMember(selectedRoom)?.name || 'محادثة'}
+                  {getOtherMember(selectedRoom)?.name || selectedRoom.name || 'محادثة'}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {getOtherMember(selectedRoom)?.role === 'CONSULTANT'
@@ -2383,7 +2383,7 @@ export function EntrepreneurChat() {
                     return (
                       <div
                         key={msg.id}
-                        className={`flex ${isOwn ? 'justify-start' : 'justify-end'}`}
+                        className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
                       >
                         <div
                           className={`max-w-[75%] rounded-2xl px-4 py-2 ${
