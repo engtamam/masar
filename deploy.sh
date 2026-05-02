@@ -188,7 +188,11 @@ update_deploy() {
     docker compose -f ${COMPOSE_FILE} build
 
     log "Restarting services..."
-    docker compose -f ${COMPOSE_FILE} up -d --remove-orphans
+    docker compose -f ${COMPOSE_FILE} up -d --remove-orphans --force-recreate
+
+    # Reload Caddy to pick up Caddyfile changes
+    log "Reloading Caddy configuration..."
+    docker compose -f ${COMPOSE_FILE} exec caddy caddy reload --config /etc/caddy/Caddyfile 2>/dev/null || true
 
     # Wait for web to be healthy
     log "Waiting for web service to become healthy..."
