@@ -2183,60 +2183,79 @@ export function EntrepreneurChat() {
   const [messages, setMessages] = useState<ChatMessageItem[]>([]);
   const [messageInput, setMessageInput] = useState('');
   const [loadingRooms, setLoadingRooms] = useState(true);
-  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(true);
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const initialLoadDone = useRef(false);
 
-  // Load chat rooms
+  // Load chat rooms — only reload on mount, not on activeChatRoomId change
   useEffect(() => {
-    async function loadRooms() {
-      setLoadingRooms(true);
+    let cancelled = false;
+    async function loadRooms(isInitial: boolean) {
+      if (isInitial) setLoadingRooms(true);
       try {
         const res = await chatApi.getRooms();
-        if (res.success && res.data) {
-          setRooms(res.data as ChatRoomItem[]);
-          // Auto-select first room if none selected
+        if (!cancelled && res.success && res.data) {
           const roomsList = res.data as ChatRoomItem[];
-          if (roomsList.length > 0 && !activeChatRoomId) {
+          setRooms(roomsList);
+          // Auto-select first room only on initial load
+          if (isInitial && roomsList.length > 0 && !activeChatRoomId) {
             setActiveChatRoomId(roomsList[0].id);
           }
         }
       } catch {
         // Silently handle
       } finally {
-        setLoadingRooms(false);
+        if (isInitial) setLoadingRooms(false);
       }
     }
-    loadRooms();
 
-    // Poll for new messages every 10 seconds
-    const interval = setInterval(loadRooms, 10000);
-    return () => clearInterval(interval);
-  }, [activeChatRoomId, setActiveChatRoomId]);
+    if (!initialLoadDone.current) {
+      loadRooms(true);
+      initialLoadDone.current = true;
+    } else {
+      loadRooms(false);
+    }
+
+    // Poll for new rooms every 10 seconds (no loading flash)
+    const interval = setInterval(() => loadRooms(false), 10000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [setActiveChatRoomId]); // removed activeChatRoomId — prevents flicker on room click
 
   // Load messages when room changes
   useEffect(() => {
     if (!activeChatRoomId) return;
+    let cancelled = false;
+    let isFirst = true;
 
     async function loadMessages() {
-      setLoadingMessages(true);
+      if (isFirst) setLoadingMessages(true);
       try {
-        const res = await chatApi.getMessages(activeChatRoomId);
-        if (res.success && res.data) {
+        const res = await chatApi.getMessages(activeChatRoomId!);
+        if (!cancelled && res.success && res.data) {
           const data = res.data as { messages: ChatMessageItem[] };
           setMessages(data.messages || []);
         }
       } catch {
         // Silently handle
       } finally {
-        setLoadingMessages(false);
+        if (isFirst) {
+          setLoadingMessages(false);
+          isFirst = false;
+        }
       }
     }
     loadMessages();
 
-    // Poll for new messages every 5 seconds
+    // Poll for new messages every 5 seconds (no loading flash)
     const interval = setInterval(loadMessages, 5000);
-    return () => clearInterval(interval);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [activeChatRoomId]);
 
   // Auto-scroll to bottom on new messages
@@ -2278,9 +2297,10 @@ export function EntrepreneurChat() {
   return (
     <div className="flex h-[calc(100vh-4rem)]" dir="rtl">
       {/* Chat rooms list (right side in RTL) */}
-      <div className="w-72 border-l bg-gray-50 flex flex-col">
-        <div className="p-4 border-b">
-          <h2 className="font-bold text-gray-900">المحادثات</h2>
+      <div className="w-80 border-l bg-white flex flex-col shadow-sm">
+        <div className="p-4 border-b bg-gradient-to-l from-emerald-50 to-white">
+          <h2 className="font-bold text-gray-900 text-lg">المحادثات</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">{rooms.length} محادثة</p>
         </div>
         <ScrollArea className="flex-1">
           {loadingRooms ? (
@@ -2290,11 +2310,12 @@ export function EntrepreneurChat() {
               ))}
             </div>
           ) : rooms.length === 0 ? (
-            <div className="p-4 text-center text-muted-foreground text-sm">
-              لا توجد محادثات
+            <div className="p-8 text-center text-muted-foreground">
+              <MessageCircle className="w-10 h-10 mx-auto text-gray-200 mb-3" />
+              <p className="text-sm">لا توجد محادثات</p>
             </div>
           ) : (
-            <div className="p-2 space-y-1">
+            <div className="p-2 space-y-0.5">
               {rooms.map((room) => {
                 const otherMember = getOtherMember(room);
                 const isSelected = room.id === activeChatRoomId;
@@ -2303,30 +2324,41 @@ export function EntrepreneurChat() {
                   <button
                     key={room.id}
                     onClick={() => setActiveChatRoomId(room.id)}
-                    className={`w-full flex items-center gap-3 p-3 rounded-xl text-right transition-colors ${
+                    className={`w-full flex items-center gap-3 p-3 rounded-xl text-right transition-all duration-150 ${
                       isSelected
-                        ? 'bg-emerald-100 text-emerald-900'
-                        : 'hover:bg-gray-100'
+                        ? 'bg-emerald-50 border border-emerald-200 shadow-sm'
+                        : 'hover:bg-gray-50 border border-transparent'
                     }`}
                   >
-                    <div className="relative">
-                      <Avatar className="w-10 h-10">
-                        <AvatarFallback className="bg-emerald-100 text-emerald-700 text-sm">
+                    <div className="relative flex-shrink-0">
+                      <Avatar className="w-11 h-11 ring-2 ring-white shadow-sm">
+                        <AvatarFallback className={`text-sm font-semibold ${
+                          isSelected
+                            ? 'bg-emerald-200 text-emerald-800'
+                            : 'bg-emerald-100 text-emerald-700'
+                        }`}>
                           {otherMember ? getInitials(otherMember.name) : '؟'}
                         </AvatarFallback>
                       </Avatar>
                       {room.unreadCount > 0 && (
-                        <span className="absolute -top-1 -left-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                        <span className="absolute -top-1 -left-1 min-w-[20px] h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
                           {room.unreadCount}
                         </span>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">
-                        {otherMember?.name || room.name || 'محادثة'}
-                      </p>
+                      <div className="flex items-center justify-between">
+                        <p className={`text-sm truncate ${isSelected ? 'font-bold text-emerald-900' : 'font-medium text-gray-900'}`}>
+                          {otherMember?.name || room.name || 'محادثة'}
+                        </p>
+                        {lastMessage && (
+                          <span className="text-[10px] text-muted-foreground flex-shrink-0 mr-2">
+                            {new Date(lastMessage.createdAt).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        )}
+                      </div>
                       {lastMessage && (
-                        <p className="text-xs text-muted-foreground truncate">
+                        <p className="text-xs text-muted-foreground truncate mt-0.5">
                           {lastMessage.content}
                         </p>
                       )}
@@ -2340,18 +2372,18 @@ export function EntrepreneurChat() {
       </div>
 
       {/* Messages area (left side in RTL) */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col bg-gray-50/50">
         {selectedRoom ? (
           <>
             {/* Chat header */}
-            <div className="p-4 border-b bg-white flex items-center gap-3">
-              <Avatar className="w-9 h-9">
-                <AvatarFallback className="bg-emerald-100 text-emerald-700 text-sm">
+            <div className="px-5 py-3 border-b bg-white flex items-center gap-3 shadow-sm">
+              <Avatar className="w-10 h-10 ring-2 ring-emerald-100">
+                <AvatarFallback className="bg-emerald-100 text-emerald-700 text-sm font-semibold">
                   {getInitials(getOtherMember(selectedRoom)?.name || '؟')}
                 </AvatarFallback>
               </Avatar>
-              <div>
-                <p className="font-semibold text-sm">
+              <div className="flex-1">
+                <p className="font-semibold text-gray-900">
                   {getOtherMember(selectedRoom)?.name || selectedRoom.name || 'محادثة'}
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -2365,7 +2397,7 @@ export function EntrepreneurChat() {
             </div>
 
             {/* Messages */}
-            <ScrollArea className="flex-1 p-4">
+            <ScrollArea className="flex-1 px-5 py-4">
               {loadingMessages ? (
                 <div className="space-y-3">
                   {Array.from({ length: 4 }).map((_, i) => (
@@ -2373,8 +2405,11 @@ export function EntrepreneurChat() {
                   ))}
                 </div>
               ) : messages.length === 0 ? (
-                <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-                  ابدأ المحادثة
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  <div className="text-center">
+                    <MessageCircle className="w-10 h-10 mx-auto text-gray-200 mb-3" />
+                    <p className="text-sm">ابدأ المحادثة</p>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -2386,21 +2421,21 @@ export function EntrepreneurChat() {
                         className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
                       >
                         <div
-                          className={`max-w-[75%] rounded-2xl px-4 py-2 ${
+                          className={`max-w-[70%] rounded-2xl px-4 py-2.5 shadow-sm ${
                             isOwn
-                              ? 'bg-emerald-600 text-white rounded-bl-sm'
-                              : 'bg-gray-100 text-gray-900 rounded-br-sm'
+                              ? 'bg-emerald-600 text-white rounded-bl-md'
+                              : 'bg-white text-gray-900 rounded-br-md border border-gray-100'
                           }`}
                         >
                           {!isOwn && (
-                            <p className="text-xs font-semibold mb-1 opacity-70">
+                            <p className="text-xs font-bold mb-1 text-emerald-700">
                               {msg.sender.name}
                             </p>
                           )}
-                          <p className="text-sm">{msg.content}</p>
+                          <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{msg.content}</p>
                           <p
-                            className={`text-xs mt-1 ${
-                              isOwn ? 'text-emerald-200' : 'text-muted-foreground'
+                            className={`text-[10px] mt-1.5 ${
+                              isOwn ? 'text-emerald-200' : 'text-gray-400'
                             }`}
                           >
                             {new Date(msg.createdAt).toLocaleTimeString('ar-SA', {
@@ -2418,7 +2453,7 @@ export function EntrepreneurChat() {
             </ScrollArea>
 
             {/* Message input */}
-            <div className="p-4 border-t bg-white">
+            <div className="px-5 py-3 border-t bg-white">
               <div className="flex items-center gap-2">
                 <Input
                   placeholder="اكتب رسالتك..."
@@ -2430,13 +2465,13 @@ export function EntrepreneurChat() {
                       handleSendMessage();
                     }
                   }}
-                  className="flex-1"
+                  className="flex-1 rounded-xl border-gray-200 focus:border-emerald-400"
                   disabled={sending}
                 />
                 <Button
                   onClick={handleSendMessage}
                   disabled={!messageInput.trim() || sending}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-10 w-10"
                   size="icon"
                 >
                   {sending ? (
@@ -2451,8 +2486,9 @@ export function EntrepreneurChat() {
         ) : (
           <div className="flex-1 flex items-center justify-center text-muted-foreground">
             <div className="text-center">
-              <MessageCircle className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-              <p>اختر محادثة للبدء</p>
+              <MessageCircle className="w-16 h-16 mx-auto text-gray-200 mb-4" />
+              <p className="text-lg font-medium text-gray-400">اختر محادثة للبدء</p>
+              <p className="text-sm text-gray-300 mt-1">اختر محادثة من القائمة المجاورة</p>
             </div>
           </div>
         )}
