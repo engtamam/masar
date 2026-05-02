@@ -20,6 +20,7 @@ export type AppView =
   | 'entrepreneur-bookings'
   | 'entrepreneur-chat'
   | 'entrepreneur-files'
+  | 'entrepreneur-consultants'
   | 'entrepreneur-templates'
   | 'consultant-dashboard'
   | 'consultant-appointments'

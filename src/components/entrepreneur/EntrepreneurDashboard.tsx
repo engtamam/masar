@@ -36,6 +36,10 @@ import {
   Archive,
   PlayCircle,
   PauseCircle,
+  Users,
+  Star,
+  Eye,
+  MessageSquare,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -317,6 +321,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'لوحة التحكم', icon: LayoutDashboard, view: 'entrepreneur-dashboard' },
   { label: 'مشاريعي', icon: Briefcase, view: 'entrepreneur-projects' },
   { label: 'رحلتي', icon: Map, view: 'entrepreneur-milestones' },
+  { label: 'المستشارون', icon: Users, view: 'entrepreneur-consultants' },
   { label: 'حجوزاتي', icon: Calendar, view: 'entrepreneur-bookings' },
   { label: 'المحادثات', icon: MessageCircle, view: 'entrepreneur-chat' },
   { label: 'الملفات', icon: FolderOpen, view: 'entrepreneur-files' },
@@ -438,6 +443,8 @@ export function EntrepreneurMainView() {
       return <EntrepreneurChat />;
     case 'entrepreneur-files':
       return <EntrepreneurFiles />;
+    case 'entrepreneur-consultants':
+      return <EntrepreneurConsultants />;
     default:
       return <EntrepreneurOverview />;
   }
@@ -2497,7 +2504,385 @@ export function EntrepreneurChat() {
   );
 }
 
-// ========== 7. EntrepreneurFiles ==========
+// ========== 7. EntrepreneurConsultants ==========
+
+interface ConsultantInfo {
+  id: string;
+  bio?: string;
+  experience?: string;
+  rating: number;
+  isActive: boolean;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    avatarUrl?: string;
+  };
+  specialty: {
+    id: string;
+    nameAr: string;
+    nameEn: string;
+    icon?: string;
+    color?: string;
+  };
+}
+
+interface AvailabilitySlotInfo {
+  id: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  slotDuration: number;
+}
+
+const ARABIC_DAYS_CONSULTANT: Record<number, string> = {
+  0: 'الأحد',
+  1: 'الاثنين',
+  2: 'الثلاثاء',
+  3: 'الأربعاء',
+  4: 'الخميس',
+  5: 'الجمعة',
+  6: 'السبت',
+};
+
+export function EntrepreneurConsultants() {
+  const { setCurrentView, setActiveChatRoomId } = useAppStore();
+  const [consultants, setConsultants] = useState<ConsultantInfo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedConsultant, setSelectedConsultant] = useState<ConsultantInfo | null>(null);
+  const [availability, setAvailability] = useState<AvailabilitySlotInfo[]>([]);
+  const [loadingAvailability, setLoadingAvailability] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [specialtyFilter, setSpecialtyFilter] = useState<string>('');
+
+  useEffect(() => {
+    async function loadConsultants() {
+      setLoading(true);
+      try {
+        const res = await consultantsApi.getConsultants(specialtyFilter || undefined);
+        if (res.success && res.data) {
+          setConsultants(res.data as ConsultantInfo[]);
+        }
+      } catch {
+        // Silently handle
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadConsultants();
+  }, [specialtyFilter]);
+
+  const handleViewProfile = async (consultant: ConsultantInfo) => {
+    setSelectedConsultant(consultant);
+    setLoadingAvailability(true);
+    try {
+      const res = await bookingsApi.getAvailability(consultant.id);
+      if (res.success && res.data) {
+        setAvailability(res.data as AvailabilitySlotInfo[]);
+      }
+    } catch {
+      // Silently handle
+    } finally {
+      setLoadingAvailability(false);
+    }
+  };
+
+  const handleBookSession = () => {
+    setCurrentView('entrepreneur-bookings');
+  };
+
+  const handleContact = () => {
+    setCurrentView('entrepreneur-chat');
+  };
+
+  // Filter by search
+  const filtered = consultants.filter((c) => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      c.user.name.toLowerCase().includes(q) ||
+      c.specialty.nameAr.includes(q) ||
+      (c.bio && c.bio.includes(q))
+    );
+  });
+
+  // Get unique specialties
+  const specialties = Array.from(new Set(consultants.map((c) => c.specialty.id))).map((id) => {
+    const c = consultants.find((x) => x.specialty.id === id)!;
+    return { id: c.specialty.id, nameAr: c.specialty.nameAr };
+  });
+
+  // Group availability by day
+  const slotsByDay: Record<number, AvailabilitySlotInfo[]> = {};
+  for (const slot of availability) {
+    if (!slotsByDay[slot.dayOfWeek]) slotsByDay[slot.dayOfWeek] = [];
+    slotsByDay[slot.dayOfWeek].push(slot);
+  }
+
+  // Profile detail dialog
+  if (selectedConsultant) {
+    return (
+      <div className="p-4 sm:p-6" dir="rtl">
+        {/* Back button */}
+        <button
+          onClick={() => setSelectedConsultant(null)}
+          className="flex items-center gap-2 text-emerald-600 hover:text-emerald-700 mb-6 text-sm font-medium"
+        >
+          <ChevronUp className="w-4 h-4 rotate-[-90deg]" />
+          العودة للمستشارين
+        </button>
+
+        {/* Profile card */}
+        <Card className="overflow-hidden mb-6">
+          <div className="bg-gradient-to-l from-emerald-600 to-emerald-700 p-6 text-white">
+            <div className="flex flex-col sm:flex-row items-center gap-5">
+              <Avatar className="w-20 h-20 ring-4 ring-white/30">
+                <AvatarFallback className="bg-white/20 text-white text-2xl font-bold">
+                  {getInitials(selectedConsultant.user.name)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="text-center sm:text-right flex-1">
+                <h2 className="text-2xl font-bold">{selectedConsultant.user.name}</h2>
+                <div className="flex items-center justify-center sm:justify-start gap-2 mt-2">
+                  <Badge className="bg-white/20 text-white border-0 text-sm">
+                    {selectedConsultant.specialty.nameAr}
+                  </Badge>
+                  <div className="flex items-center gap-1">
+                    <Star className="w-4 h-4 text-yellow-300 fill-yellow-300" />
+                    <span className="text-sm font-medium">
+                      {selectedConsultant.rating > 0 ? selectedConsultant.rating.toFixed(1) : 'جديد'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <CardContent className="p-6">
+            {/* Bio */}
+            {selectedConsultant.bio && (
+              <div className="mb-6">
+                <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                  <Users className="w-4 h-4 text-emerald-600" />
+                  نبذة عن المستشار
+                </h3>
+                <p className="text-sm text-gray-600 leading-relaxed bg-gray-50 p-4 rounded-xl">
+                  {selectedConsultant.bio}
+                </p>
+              </div>
+            )}
+
+            {/* Experience */}
+            {selectedConsultant.experience && (
+              <div className="mb-6">
+                <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-emerald-600" />
+                  الخبرة
+                </h3>
+                <p className="text-sm text-gray-600 leading-relaxed bg-gray-50 p-4 rounded-xl">
+                  {selectedConsultant.experience}
+                </p>
+              </div>
+            )}
+
+            {/* Weekly Schedule */}
+            <div className="mb-6">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-emerald-600" />
+                الجدول الأسبوعي
+              </h3>
+              {loadingAvailability ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <Skeleton key={i} className="h-20 rounded-xl" />
+                  ))}
+                </div>
+              ) : availability.length === 0 ? (
+                <div className="text-center py-8 bg-gray-50 rounded-xl">
+                  <Calendar className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">لم يحدد المستشار جدول التوفر بعد</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {[0, 1, 2, 3, 4, 5, 6].map((dayNum) => {
+                    const daySlots = slotsByDay[dayNum] || [];
+                    if (daySlots.length === 0) return null;
+                    return (
+                      <Card key={dayNum} className="border-emerald-100">
+                        <div className="bg-emerald-50 px-3 py-2 border-b border-emerald-100">
+                          <h4 className="font-semibold text-emerald-800 text-sm">
+                            {ARABIC_DAYS_CONSULTANT[dayNum]}
+                          </h4>
+                        </div>
+                        <CardContent className="p-3">
+                          <div className="space-y-1.5">
+                            {daySlots.map((slot) => (
+                              <div key={slot.id} className="flex items-center gap-2 text-xs bg-gray-50 p-2 rounded-lg">
+                                <Clock className="w-3 h-3 text-gray-400" />
+                                <span className="font-medium text-gray-700">
+                                  {slot.startTime} - {slot.endTime}
+                                </span>
+                                <span className="text-muted-foreground">({slot.slotDuration} دقيقة)</span>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+              <Button
+                onClick={handleBookSession}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white h-11"
+              >
+                <Calendar className="w-4 h-4 ml-2" />
+                حجز جلسة
+              </Button>
+              <Button
+                onClick={handleContact}
+                variant="outline"
+                className="flex-1 text-emerald-600 border-emerald-200 hover:bg-emerald-50 h-11"
+              >
+                <MessageSquare className="w-4 h-4 ml-2" />
+                إرسال رسالة
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Consultants list view
+  return (
+    <div className="p-4 sm:p-6" dir="rtl">
+      {/* Header */}
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold text-gray-900">المستشارون</h2>
+        <p className="text-sm text-muted-foreground mt-1">تصفح المستشارين المتاحين واختر الأنسب لمشروعك</p>
+      </div>
+
+      {/* Search and filter */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="relative flex-1">
+          <Input
+            placeholder="ابحث بالاسم أو التخصص..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pr-10 rounded-xl border-gray-200"
+          />
+        </div>
+        <select
+          value={specialtyFilter}
+          onChange={(e) => setSpecialtyFilter(e.target.value)}
+          className="text-sm border border-gray-200 rounded-xl px-4 py-2 bg-white min-w-[160px]"
+        >
+          <option value="">جميع التخصصات</option>
+          {specialties.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.nameAr}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Consultants grid */}
+      {loading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-56 rounded-xl" />
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
+        <Card>
+          <CardContent className="py-16 text-center">
+            <Users className="w-14 h-14 text-gray-200 mx-auto mb-4" />
+            <p className="text-lg font-medium text-gray-400">لا يوجد مستشارون متاحون حالياً</p>
+            <p className="text-sm text-muted-foreground mt-1">سيتم إضافة مستشارين جدد قريباً</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filtered.map((consultant) => (
+            <Card
+              key={consultant.id}
+              className="overflow-hidden hover:shadow-lg transition-shadow duration-200 border-gray-100"
+            >
+              {/* Top gradient bar */}
+              <div className="h-1.5 bg-gradient-to-l from-emerald-400 to-emerald-600" />
+
+              <CardContent className="p-5">
+                {/* Avatar + name */}
+                <div className="flex items-center gap-3 mb-4">
+                  <Avatar className="w-14 h-14 ring-2 ring-emerald-100">
+                    <AvatarFallback className="bg-emerald-100 text-emerald-700 text-lg font-bold">
+                      {getInitials(consultant.user.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-gray-900 truncate">{consultant.user.name}</p>
+                    <Badge className="bg-emerald-50 text-emerald-700 border-0 text-xs mt-1">
+                      {consultant.specialty.nameAr}
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* Rating */}
+                <div className="flex items-center gap-1.5 mb-3">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star
+                      key={i}
+                      className={`w-4 h-4 ${
+                        i < Math.round(consultant.rating)
+                          ? 'text-yellow-400 fill-yellow-400'
+                          : 'text-gray-200'
+                      }`}
+                    />
+                  ))}
+                  <span className="text-xs text-muted-foreground mr-1">
+                    {consultant.rating > 0 ? consultant.rating.toFixed(1) : 'جديد'}
+                  </span>
+                </div>
+
+                {/* Bio preview */}
+                {consultant.bio && (
+                  <p className="text-xs text-muted-foreground line-clamp-2 mb-4 leading-relaxed">
+                    {consultant.bio}
+                  </p>
+                )}
+
+                {/* Action buttons */}
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => handleViewProfile(consultant)}
+                    variant="outline"
+                    className="flex-1 text-emerald-600 border-emerald-200 hover:bg-emerald-50 h-9 text-xs"
+                  >
+                    <Eye className="w-3.5 h-3.5 ml-1" />
+                    عرض الملف
+                  </Button>
+                  <Button
+                    onClick={handleBookSession}
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white h-9 text-xs"
+                  >
+                    <Calendar className="w-3.5 h-3.5 ml-1" />
+                    حجز جلسة
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ========== 8. EntrepreneurFiles ==========
 
 export function EntrepreneurFiles() {
   const { user, currentProjectId } = useAppStore();
