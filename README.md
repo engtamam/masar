@@ -433,7 +433,7 @@ This guide walks you through deploying Masar to AWS EC2 from scratch. No prior A
 
 ```bash
 chmod 400 masar-key.pem
-ssh -i masar-key.pem ubuntu@YOUR_EC2_PUBLIC_IP
+ssh -i masar2-key.pem ubuntu@YOUR_EC2_PUBLIC_IP
 ```
 
 ### Step 4: Install Docker on the Server
