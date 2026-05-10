@@ -735,7 +735,7 @@ const PROBLEM_CARDS = [
 const SOLUTION_ITEMS = [
   {
     icon: <ShieldCheck className="size-7" />,
-    text: 'نحن مو حاضنة، نحن اللي نجهّزك للحاضنة',
+    text: 'نحن لسنا حاضنة، نحن اللي نجهّزك للحاضنة',
   },
   {
     icon: <Handshake className="size-7" />,
@@ -810,7 +810,7 @@ const HOW_IT_WORKS = [
   {
     step: '١',
     icon: <Rocket className="size-8" />,
-    title: 'سجّل وأبدي رحلتك',
+    title: 'سجّل وأبدأ رحلتك',
     desc: 'أنشئ حسابك وابدأ رحلتك مباشرة — المرحلة الأولى تنفتح لك فوراً',
     gradient: 'from-emerald-500 to-emerald-600',
   },

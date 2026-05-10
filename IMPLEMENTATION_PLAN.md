@@ -269,10 +269,10 @@ src/components/entrepreneur/OnboardingWizard.tsx
 
 | الخطوة | العنوان | الحقل | النوع |
 |--------|---------|-------|-------|
-| 1 | "شنو اسم فكرتك؟" | `name` | Input text |
-| 2 | "ايش الصناعة؟" | `industry` | Select dropdown |
+| 1 | "ماهو اسم فكرتك؟" | `name` | Input text |
+| 2 | "ماهيالصناعة؟" | `industry` | Select dropdown |
 | 3 | "وصف مختصر" | `description` | Textarea |
-| 4 | "ايش مرحلتك؟" | `stage` | Radio cards |
+| 4 | "ماهيمرحلتك؟" | `stage` | Radio cards |
 
 **التصميم:**
 - شاشة كاملة (full-screen) بتصميم جميل

@@ -177,7 +177,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 <div className="text-center">
                   <div className="text-4xl mb-3">💡</div>
                   <h2 className="text-xl font-bold text-gray-800 mb-2">
-                    شنو اسم فكرتك؟
+                    ماهو اسم فكرتك؟
                   </h2>
                   <p className="text-sm text-gray-500">
                     اختار اسم يعبر عن مشروعك
@@ -209,7 +209,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 <div className="text-center">
                   <div className="text-4xl mb-3">🏭</div>
                   <h2 className="text-xl font-bold text-gray-800 mb-2">
-                    ايش الصناعة؟
+                    ماهيالصناعة؟
                   </h2>
                   <p className="text-sm text-gray-500">
                     اختار المجال الأقرب لمشروعك
@@ -271,7 +271,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 <div className="text-center">
                   <div className="text-4xl mb-3">🎯</div>
                   <h2 className="text-xl font-bold text-gray-800 mb-2">
-                    ايش مرحلتك الحالية؟
+                    ماهيمرحلتك الحالية؟
                   </h2>
                   <p className="text-sm text-gray-500">
                     اختار المرحلة اللي أنت فيها الحين
