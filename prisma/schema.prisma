@@ -29,6 +29,11 @@ model User {
   avatarUrl    String?
   phone        String?
   isActive     Boolean  @default(true)
+  emailVerified    Boolean  @default(false)
+  emailVerifyToken String?
+  emailVerifyExpires DateTime?
+  passwordResetToken String?
+  passwordResetExpires DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -89,6 +94,7 @@ model Specialty {
   // Relations
   consultants       ConsultantProfile[]
   milestoneDefaults MilestoneDefault[]
+  templates         Template[]
 
   @@map("specialties")
 }
@@ -445,4 +451,31 @@ model Notification {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("notifications")
+}
+
+// ============================================================================
+// TEMPLATE SYSTEM (Document templates for milestones)
+// ============================================================================
+
+model Template {
+  id            String  @id @default(cuid())
+  nameAr        String
+  nameEn        String
+  descriptionAr String?
+  descriptionEn String?
+  category      String?
+  specialtyId   String?
+  fileName      String
+  filePath      String
+  fileType      String  @default("application/octet-stream")
+  fileSize      Int     @default(0)
+  sortOrder     Int     @default(0)
+  downloadCount Int     @default(0)
+  isActive      Boolean @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  specialty Specialty? @relation(fields: [specialtyId], references: [id])
+
+  @@map("templates")
 }

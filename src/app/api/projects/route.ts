@@ -274,6 +274,24 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // Send guidance notification to the entrepreneur
+      const firstMilestoneInfo = milestoneDefaults[0]
+      const firstSpecialty = firstMilestoneInfo
+        ? await tx.specialty.findUnique({ where: { id: firstMilestoneInfo.specialtyId } })
+        : null
+
+      await tx.notification.create({
+        data: {
+          userId: user.userId,
+          title: '🎯 خطوتك التالية',
+          message: firstSpecialty
+            ? `احجز جلسة استشارية مع أحد مستشاري تخصص "${firstSpecialty.nameAr}" لبدء مرحلة "${firstMilestoneInfo?.titleAr || 'الاستقبال والتقييم'}". اذهب لصفحة المستشارين واختر الأنسب لك!`
+            : 'احجز جلسة استشارية مع أحد المستشارين لبدء رحلتك. اذهب لصفحة المستشارين واختر الأنسب لك!',
+          type: 'info',
+          link: '/consultants',
+        },
+      })
+
       return { project, milestonesCreated: milestoneDefaults.length }
     })
 

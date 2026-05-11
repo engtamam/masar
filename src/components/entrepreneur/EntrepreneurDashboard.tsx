@@ -915,7 +915,7 @@ export function EntrepreneurProjects() {
 // ========== 4. EntrepreneurOverview ==========
 
 export function EntrepreneurOverview() {
-  const { user, currentProjectId } = useAppStore();
+  const { user, currentProjectId, setCurrentView } = useAppStore();
   const [milestonesData, setMilestonesData] = useState<MilestonesResponse | null>(null);
   const [bookingsData, setBookingsData] = useState<BookingsResponse | null>(null);
   const [notificationsData, setNotificationsData] = useState<NotificationsResponse | null>(null);
@@ -979,6 +979,10 @@ export function EntrepreneurOverview() {
     );
   }
 
+  // Determine next step guidance
+  const hasBookings = confirmedBookings.length > 0;
+  const showNextStepBanner = currentMilestone && !hasBookings;
+
   return (
     <div className="p-4 sm:p-6 space-y-6">
       {/* Welcome message */}
@@ -988,6 +992,44 @@ export function EntrepreneurOverview() {
         </h2>
         <p className="text-muted-foreground mt-1">إليك نظرة عامة على تقدمك في الحاضنة</p>
       </div>
+
+      {/* Next Step Banner — shown when user has a current milestone but no bookings */}
+      {showNextStepBanner && (
+        <Card className="border-emerald-200 bg-gradient-to-l from-emerald-50 via-teal-50 to-cyan-50 overflow-hidden">
+          <CardContent className="p-5">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                <Rocket className="w-6 h-6 text-emerald-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-base font-bold text-emerald-800">
+                  🎯 خطوتك التالية: {currentMilestone.milestoneDefault.titleAr}
+                </h3>
+                <p className="text-sm text-emerald-600 mt-1">
+                  احجز جلسة استشارية مع أحد مستشاري تخصص "{currentMilestone.milestoneDefault.specialty?.nameAr || 'تطوير الأعمال'}" عشان يبدأ معك هذي المرحلة
+                </p>
+              </div>
+              <div className="flex gap-2 flex-shrink-0">
+                <Button
+                  onClick={() => setCurrentView('entrepreneur-consultants')}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white h-10"
+                >
+                  <Users className="w-4 h-4 ml-2" />
+                  تصفح المستشارين
+                </Button>
+                <Button
+                  onClick={() => setCurrentView('entrepreneur-milestones')}
+                  variant="outline"
+                  className="border-emerald-200 text-emerald-600 hover:bg-emerald-50 h-10"
+                >
+                  <Map className="w-4 h-4 ml-2" />
+                  عرض المراحل
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -2546,7 +2588,7 @@ const ARABIC_DAYS_CONSULTANT: Record<number, string> = {
 };
 
 export function EntrepreneurConsultants() {
-  const { setCurrentView, setActiveChatRoomId } = useAppStore();
+  const { setCurrentView, setActiveChatRoomId, currentProjectId } = useAppStore();
   const [consultants, setConsultants] = useState<ConsultantInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedConsultant, setSelectedConsultant] = useState<ConsultantInfo | null>(null);
@@ -2554,6 +2596,32 @@ export function EntrepreneurConsultants() {
   const [loadingAvailability, setLoadingAvailability] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [specialtyFilter, setSpecialtyFilter] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<'current' | 'all'>('current');
+  const [currentMilestoneSpecialtyId, setCurrentMilestoneSpecialtyId] = useState<string | null>(null);
+  const [currentMilestoneTitle, setCurrentMilestoneTitle] = useState<string>('');
+  const [currentMilestoneSpecialtyName, setCurrentMilestoneSpecialtyName] = useState<string>('');
+
+  // Load current milestone info
+  useEffect(() => {
+    async function loadCurrentMilestone() {
+      if (!currentProjectId) return;
+      try {
+        const res = await milestonesApi.getMyMilestones(currentProjectId);
+        if (res.success && res.data) {
+          const data = res.data as MilestonesResponse;
+          const currentMilestone = data.progress?.find((p) => p.status === 'IN_PROGRESS');
+          if (currentMilestone) {
+            setCurrentMilestoneSpecialtyId(currentMilestone.milestoneDefault.specialty?.id || '');
+            setCurrentMilestoneTitle(currentMilestone.milestoneDefault.titleAr);
+            setCurrentMilestoneSpecialtyName(currentMilestone.milestoneDefault.specialty?.nameAr || '');
+          }
+        }
+      } catch {
+        // Silently handle
+      }
+    }
+    loadCurrentMilestone();
+  }, [currentProjectId]);
 
   useEffect(() => {
     async function loadConsultants() {
@@ -2605,6 +2673,14 @@ export function EntrepreneurConsultants() {
       (c.bio && c.bio.includes(q))
     );
   });
+
+  // Filter consultants for current milestone specialty
+  const currentMilestoneConsultants = currentMilestoneSpecialtyId
+    ? filtered.filter((c) => c.specialty.id === currentMilestoneSpecialtyId)
+    : [];
+  const otherConsultants = currentMilestoneSpecialtyId
+    ? filtered.filter((c) => c.specialty.id !== currentMilestoneSpecialtyId)
+    : filtered;
 
   // Get unique specialties
   const specialties = Array.from(new Set(consultants.map((c) => c.specialty.id))).map((id) => {
@@ -2757,6 +2833,88 @@ export function EntrepreneurConsultants() {
     );
   }
 
+  // Consultant card renderer
+  const renderConsultantCard = (consultant: ConsultantInfo, isRecommended?: boolean) => (
+    <Card
+      key={consultant.id}
+      className={`overflow-hidden hover:shadow-lg transition-shadow duration-200 ${
+        isRecommended ? 'border-emerald-200 ring-1 ring-emerald-100' : 'border-gray-100'
+      }`}
+    >
+      {/* Top gradient bar */}
+      <div className={`h-1.5 ${isRecommended ? 'bg-gradient-to-l from-amber-400 to-emerald-500' : 'bg-gradient-to-l from-emerald-400 to-emerald-600'}`} />
+
+      <CardContent className="p-5">
+        {/* Recommended badge */}
+        {isRecommended && (
+          <div className="flex items-center gap-1.5 mb-3">
+            <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-xs">
+              ⭐ موصى به لمرحلتك الحالية
+            </Badge>
+          </div>
+        )}
+
+        {/* Avatar + name */}
+        <div className="flex items-center gap-3 mb-4">
+          <Avatar className="w-14 h-14 ring-2 ring-emerald-100">
+            <AvatarFallback className="bg-emerald-100 text-emerald-700 text-lg font-bold">
+              {getInitials(consultant.user.name)}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-gray-900 truncate">{consultant.user.name}</p>
+            <Badge className="bg-emerald-50 text-emerald-700 border-0 text-xs mt-1">
+              {consultant.specialty.nameAr}
+            </Badge>
+          </div>
+        </div>
+
+        {/* Rating */}
+        <div className="flex items-center gap-1.5 mb-3">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Star
+              key={i}
+              className={`w-4 h-4 ${
+                i < Math.round(consultant.rating)
+                  ? 'text-yellow-400 fill-yellow-400'
+                  : 'text-gray-200'
+              }`}
+            />
+          ))}
+          <span className="text-xs text-muted-foreground mr-1">
+            {consultant.rating > 0 ? consultant.rating.toFixed(1) : 'جديد'}
+          </span>
+        </div>
+
+        {/* Bio preview */}
+        {consultant.bio && (
+          <p className="text-xs text-muted-foreground line-clamp-2 mb-4 leading-relaxed">
+            {consultant.bio}
+          </p>
+        )}
+
+        {/* Action buttons */}
+        <div className="flex gap-2">
+          <Button
+            onClick={() => handleViewProfile(consultant)}
+            variant="outline"
+            className="flex-1 text-emerald-600 border-emerald-200 hover:bg-emerald-50 h-9 text-xs"
+          >
+            <Eye className="w-3.5 h-3.5 ml-1" />
+            عرض الملف
+          </Button>
+          <Button
+            onClick={handleBookSession}
+            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white h-9 text-xs"
+          >
+            <Calendar className="w-3.5 h-3.5 ml-1" />
+            حجز جلسة
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   // Consultants list view
   return (
     <div className="p-4 sm:p-6" dir="rtl">
@@ -2766,117 +2924,168 @@ export function EntrepreneurConsultants() {
         <p className="text-sm text-muted-foreground mt-1">تصفح المستشارين المتاحين واختر الأنسب لمشروعك</p>
       </div>
 
-      {/* Search and filter */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        <div className="relative flex-1">
-          <Input
-            placeholder="ابحث بالاسم أو التخصص..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pr-10 rounded-xl border-gray-200"
-          />
-        </div>
-        <select
-          value={specialtyFilter}
-          onChange={(e) => setSpecialtyFilter(e.target.value)}
-          className="text-sm border border-gray-200 rounded-xl px-4 py-2 bg-white min-w-[160px]"
+      {/* Tabs */}
+      <div className="flex gap-1 mb-6 bg-gray-100 rounded-xl p-1">
+        <button
+          onClick={() => setActiveTab('current')}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+            activeTab === 'current'
+              ? 'bg-white text-emerald-700 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
         >
-          <option value="">جميع التخصصات</option>
-          {specialties.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.nameAr}
-            </option>
-          ))}
-        </select>
+          <Map className="w-4 h-4" />
+          مستشارو المرحلة الحالية
+          {currentMilestoneConsultants.length > 0 && (
+            <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+              activeTab === 'current' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-500'
+            }`}>
+              {currentMilestoneConsultants.length}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab('all')}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+            activeTab === 'all'
+              ? 'bg-white text-emerald-700 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          كل المستشارين
+        </button>
       </div>
 
-      {/* Consultants grid */}
-      {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-56 rounded-xl" />
-          ))}
-        </div>
-      ) : filtered.length === 0 ? (
-        <Card>
-          <CardContent className="py-16 text-center">
-            <Users className="w-14 h-14 text-gray-200 mx-auto mb-4" />
-            <p className="text-lg font-medium text-gray-400">لا يوجد مستشارون متاحون حالياً</p>
-            <p className="text-sm text-muted-foreground mt-1">سيتم إضافة مستشارين جدد قريباً</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((consultant) => (
-            <Card
-              key={consultant.id}
-              className="overflow-hidden hover:shadow-lg transition-shadow duration-200 border-gray-100"
-            >
-              {/* Top gradient bar */}
-              <div className="h-1.5 bg-gradient-to-l from-emerald-400 to-emerald-600" />
-
-              <CardContent className="p-5">
-                {/* Avatar + name */}
-                <div className="flex items-center gap-3 mb-4">
-                  <Avatar className="w-14 h-14 ring-2 ring-emerald-100">
-                    <AvatarFallback className="bg-emerald-100 text-emerald-700 text-lg font-bold">
-                      {getInitials(consultant.user.name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-gray-900 truncate">{consultant.user.name}</p>
-                    <Badge className="bg-emerald-50 text-emerald-700 border-0 text-xs mt-1">
-                      {consultant.specialty.nameAr}
-                    </Badge>
-                  </div>
+      {/* Current Milestone Tab */}
+      {activeTab === 'current' && (
+        <>
+          {/* Current milestone info banner */}
+          {currentMilestoneTitle && (
+            <div className="mb-5 p-4 bg-gradient-to-l from-emerald-50 to-teal-50 rounded-xl border border-emerald-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+                  <Map className="w-5 h-5 text-emerald-600" />
                 </div>
-
-                {/* Rating */}
-                <div className="flex items-center gap-1.5 mb-3">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star
-                      key={i}
-                      className={`w-4 h-4 ${
-                        i < Math.round(consultant.rating)
-                          ? 'text-yellow-400 fill-yellow-400'
-                          : 'text-gray-200'
-                      }`}
-                    />
-                  ))}
-                  <span className="text-xs text-muted-foreground mr-1">
-                    {consultant.rating > 0 ? consultant.rating.toFixed(1) : 'جديد'}
-                  </span>
-                </div>
-
-                {/* Bio preview */}
-                {consultant.bio && (
-                  <p className="text-xs text-muted-foreground line-clamp-2 mb-4 leading-relaxed">
-                    {consultant.bio}
+                <div>
+                  <p className="text-sm font-semibold text-emerald-800">
+                    مرحلتك الحالية: {currentMilestoneTitle}
                   </p>
-                )}
-
-                {/* Action buttons */}
-                <div className="flex gap-2">
-                  <Button
-                    onClick={() => handleViewProfile(consultant)}
-                    variant="outline"
-                    className="flex-1 text-emerald-600 border-emerald-200 hover:bg-emerald-50 h-9 text-xs"
-                  >
-                    <Eye className="w-3.5 h-3.5 ml-1" />
-                    عرض الملف
-                  </Button>
-                  <Button
-                    onClick={handleBookSession}
-                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white h-9 text-xs"
-                  >
-                    <Calendar className="w-3.5 h-3.5 ml-1" />
-                    حجز جلسة
-                  </Button>
+                  <p className="text-xs text-emerald-600">
+                    التخصص المطلوب: {currentMilestoneSpecialtyName} — ننصحك بحجز جلسة مع أحد المستشارين المتخصصين أدناه
+                  </p>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-56 rounded-xl" />
+              ))}
+            </div>
+          ) : currentMilestoneConsultants.length === 0 ? (
+            <Card>
+              <CardContent className="py-16 text-center">
+                <Users className="w-14 h-14 text-gray-200 mx-auto mb-4" />
+                <p className="text-lg font-medium text-gray-400">لا يوجد مستشارون متاحون لهذه المرحلة حالياً</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {currentMilestoneSpecialtyName
+                    ? `لا يوجد مستشارون في تخصص "${currentMilestoneSpecialtyName}" حالياً`
+                    : 'لم يتم تحديد مرحلة حالية بعد'}
+                </p>
+                <Button
+                  onClick={() => setActiveTab('all')}
+                  variant="outline"
+                  className="mt-4 text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+                >
+                  عرض كل المستشارين
+                </Button>
               </CardContent>
             </Card>
-          ))}
-        </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {currentMilestoneConsultants.map((consultant) => renderConsultantCard(consultant, true))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* All Consultants Tab */}
+      {activeTab === 'all' && (
+        <>
+          {/* Search and filter */}
+          <div className="flex flex-col sm:flex-row gap-3 mb-6">
+            <div className="relative flex-1">
+              <Input
+                placeholder="ابحث بالاسم أو التخصص..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pr-10 rounded-xl border-gray-200"
+              />
+            </div>
+            <select
+              value={specialtyFilter}
+              onChange={(e) => setSpecialtyFilter(e.target.value)}
+              className="text-sm border border-gray-200 rounded-xl px-4 py-2 bg-white min-w-[160px]"
+            >
+              <option value="">جميع التخصصات</option>
+              {specialties.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.nameAr}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-56 rounded-xl" />
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
+            <Card>
+              <CardContent className="py-16 text-center">
+                <Users className="w-14 h-14 text-gray-200 mx-auto mb-4" />
+                <p className="text-lg font-medium text-gray-400">لا يوجد مستشارون متاحون حالياً</p>
+                <p className="text-sm text-muted-foreground mt-1">سيتم إضافة مستشارين جدد قريباً</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              {/* Show current milestone consultants first with recommendation badge */}
+              {currentMilestoneConsultants.length > 0 && (
+                <>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs">
+                      ⭐ موصى به لمرحلتك
+                    </Badge>
+                    <div className="flex-1 h-px bg-emerald-100" />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                    {currentMilestoneConsultants.map((consultant) => renderConsultantCard(consultant, true))}
+                  </div>
+                </>
+              )}
+              {/* Other consultants */}
+              {otherConsultants.length > 0 && (
+                <>
+                  {currentMilestoneConsultants.length > 0 && (
+                    <div className="flex items-center gap-2 mb-3 mt-6">
+                      <span className="text-xs text-gray-400 font-medium">مستشارون آخرون</span>
+                      <div className="flex-1 h-px bg-gray-100" />
+                    </div>
+                  )}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {otherConsultants.map((consultant) => renderConsultantCard(consultant, false))}
+                  </div>
+                </>
+              )}
+            </>
+          )}
+        </>
       )}
     </div>
   );

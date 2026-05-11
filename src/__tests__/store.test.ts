@@ -1,5 +1,6 @@
 // Tests for Zustand store - Project state, onboarding view, and auth state management
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import type { useAppStore as UseAppStoreType } from '@/lib/store'
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -57,7 +58,7 @@ describe('Store - getDefaultView', () => {
 })
 
 describe('Store - Project State', () => {
-  let useAppStore: ReturnType<typeof import('@/lib/store')['useAppStore']>
+  let useAppStore: typeof UseAppStoreType
 
   beforeEach(async () => {
     localStorageMock.clear()
@@ -136,7 +137,7 @@ describe('Store - Project State', () => {
       user: { id: '1', name: 'Test', email: 'test@test.com', role: 'ENTREPRENEUR' },
       token: 'test-token',
       currentProjectId: 'project-123',
-      projects: [{ id: 'p1', name: 'Project 1' }],
+      projects: [{ id: 'p1', name: 'Project 1', stage: 'IDEA', status: 'ACTIVE', onboardingCompleted: true, createdAt: '2024-01-01', updatedAt: '2024-01-01' }],
       currentView: 'entrepreneur-dashboard',
     })
 
@@ -173,7 +174,7 @@ describe('Store - Project State', () => {
 })
 
 describe('Store - AppView Types', () => {
-  let useAppStore: ReturnType<typeof import('@/lib/store')['useAppStore']>
+  let useAppStore: typeof UseAppStoreType
 
   beforeEach(async () => {
     localStorageMock.clear()
@@ -199,7 +200,7 @@ describe('Store - AppView Types', () => {
   })
 
   it('should support all entrepreneur views', () => {
-    const views = [
+    const views: import('@/lib/store').AppView[] = [
       'entrepreneur-onboarding',
       'entrepreneur-dashboard',
       'entrepreneur-milestones',
@@ -214,7 +215,7 @@ describe('Store - AppView Types', () => {
   })
 
   it('should support all consultant views', () => {
-    const views = [
+    const views: import('@/lib/store').AppView[] = [
       'consultant-dashboard',
       'consultant-appointments',
       'consultant-entrepreneurs',
@@ -227,7 +228,7 @@ describe('Store - AppView Types', () => {
   })
 
   it('should support all admin views', () => {
-    const views = [
+    const views: import('@/lib/store').AppView[] = [
       'admin-dashboard',
       'admin-users',
       'admin-specialties',
@@ -245,7 +246,7 @@ describe('Store - AppView Types', () => {
 })
 
 describe('Store - Sidebar State', () => {
-  let useAppStore: ReturnType<typeof import('@/lib/store')['useAppStore']>
+  let useAppStore: typeof UseAppStoreType
 
   beforeEach(async () => {
     localStorageMock.clear()
@@ -284,7 +285,7 @@ describe('Store - Sidebar State', () => {
 })
 
 describe('Store - Loading State', () => {
-  let useAppStore: ReturnType<typeof import('@/lib/store')['useAppStore']>
+  let useAppStore: typeof UseAppStoreType
 
   beforeEach(async () => {
     localStorageMock.clear()
